@@ -5,9 +5,9 @@
 import socket
 
 # The default IP and Port
-RELAYIP="127.0.0.1"
-DIRPORT=23456
-REQUEST="GET /tor/server/authority HTTP/1.0\r\n\r\n"
+RELAYIP = "127.0.0.1"
+DIRPORT = 23456
+REQUEST = "GET /tor/server/authority HTTP/1.0\r\n\r\n"
 
 # Request:
 #   GET /tor/server/authority HTTP/1.0\r\n\r\n
