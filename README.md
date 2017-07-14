@@ -21,6 +21,8 @@ descriptor.)
 Then, run the other scripts distributed with endosome. They will connect to
 the relay over the ORPort (or DirPort), and produce output.
 
+Scripts with the same basename do the same thing in different languages.
+
 ## Reference Material
 
 handshake.txt contains a hexdump of a typical handshake, and some working
