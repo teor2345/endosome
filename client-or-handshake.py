@@ -7,12 +7,14 @@
 
 import binascii
 import os
-import socket
-import ssl
+
+from endosome import *
 
 # The default IP and Port
 RELAYIP = "127.0.0.1"
 ORPORT = 12345
+
+MAX_RESPONSE_LEN = 10*1024*1024
 
 # Request:
 # VERSIONS: CircID(2)=None CommandCode=VERSIONS PayloadLength=2
@@ -55,11 +57,8 @@ REQUEST = ("0000" +     "07" + "0002" + "0004" +
            "80000000" + "05" + random_X +
            ZERO*489)
 
-print 'Server: {}:{}'.format(RELAYIP, ORPORT)
-dsock = socket.create_connection((RELAYIP, ORPORT))
-print 'Wrap SSL'
-ssock = ssl.wrap_socket(dsock)
+print 'SSL Server: {}:{}'.format(RELAYIP, ORPORT)
 print REQUEST
-ssock.sendall(binascii.unhexlify(REQUEST))
-result = ssock.recv(10*1024*1024)
-print binascii.hexlify(result)
+response = ssl_request(RELAYIP, ORPORT, binascii.unhexlify(REQUEST),
+                       MAX_RESPONSE_LEN)
+print binascii.hexlify(response)

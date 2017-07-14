@@ -23,6 +23,15 @@ the relay over the ORPort (or DirPort), and produce output.
 
 Scripts with the same basename do the same thing in different languages.
 
+### Do the scripts have an order?
+
+The scripts can be run in any order.
+
+Here they are in increasing order of complexity:
+* client-dir.{sh,py} (DirPort)
+* client-versions.py (ORPort, SSL, Versions Cell, Generic Cell Packing)
+* client-or-handshake.{sh,py} handshake.txt (ORPort, SSL, Circuit Initiation)
+
 ## Reference Material
 
 handshake.txt contains a hexdump of a typical handshake, and some working
@@ -35,6 +44,9 @@ https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt
 The tor directory protocol is specified in:
 
 https://gitweb.torproject.org/torspec.git/tree/dir-spec.txt
+
+Line numbers in links are approximate: they were generated from torspec git
+revision f61e98f7a2 (also approximate).
 
 ## Why "endosome" ?
 
