@@ -9,6 +9,18 @@ relay over its ORPort.
 
 It doesn't keep your traffic private: use a real Tor client for that.
 
+=== How does endosome work? ==
+
+Start a local tor relay using:
+
+    ./relay-local.sh
+
+(This relay connects to the public tor network, but doesn't publish its
+descriptor.)
+
+Then, run the other scripts distributed with endosome. They will connect to
+the relay over the ORPort (or DirPort), and produce output.
+
 == Reference Material ==
 
 The tor OR protocol is specified in:
