@@ -23,6 +23,9 @@ the relay over the ORPort (or DirPort), and produce output.
 
 == Reference Material ==
 
+handshake.txt contains a hexdump of a typical handshake, and some working
+notes.
+
 The tor OR protocol is specified in:
 
 https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt
