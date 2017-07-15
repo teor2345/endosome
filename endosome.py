@@ -201,6 +201,21 @@ def get_cell_circ_id_len(link_version, cell_command_value=None):
         return 2
     return 4
 
+def get_min_valid_circ_id(link_version, is_initiator_flag=True):
+    '''
+    Get the minimum valid circuit id for link_version, based on
+    is_initiator_flag.
+    See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n768
+        https://trac.torproject.org/projects/tor/ticket/22882
+    '''
+    assert link_version > 0
+    if link_version >= 4 and is_initiator_flag:
+        # v4 initiators must set the most significant bit
+        return 0x80000000
+    else:
+        # otherwise, any non-zero circuit id is ok
+        return 0x01
+
 # struct formats. See
 # https://docs.python.org/2/library/struct.html#byte-order-size-and-alignment
 PACK_FMT = {
@@ -653,6 +668,51 @@ def unpack_netinfo_payload(payload_len, payload_bytes):
         'sender_ip_list'     : sender_ip_list,
         }
 
+def pack_create_fast_cell(circ_id, link_version=None):
+    '''
+    Pack HASH_LEN random bytes into a fixed-length CREATE_FAST cell,
+    opening circ_id using link_version.
+    See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n962
+    '''
+    return pack_cell('CREATE_FAST', circ_id=circ_id,
+                     payload=get_random_bytes(HASH_LEN),
+                     link_version=link_version)
+
+def unpack_create_fast_payload(payload_len, payload_bytes):
+    '''
+    Unpack X from a CREATE_FAST payload.
+    Returns a dict containing this key:
+        'X_bytes' : the client's key material
+    Asserts if payload_bytes is not payload_len long.
+    Asserts if payload_len is less than HASH_LEN.
+    See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n962
+    '''
+    assert len(payload_bytes) == payload_len
+    assert payload_len >= HASH_LEN
+    return {
+        'X_bytes' : payload_bytes[0:HASH_LEN],
+        }
+
+# TODO: pack_created_fast_cell
+
+def unpack_created_fast_payload(payload_len, payload_bytes):
+    '''
+    Unpack Y and KH from a CREATED_FAST payload.
+    Returns a dict containing these keys:
+        'Y_bytes'  : the server's key material
+        'KH_bytes' : a hash proving that the server knows the shared key
+    Asserts if payload_bytes is not payload_len long.
+    Asserts if payload_len is less than HASH_LEN*2.
+    See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n962
+        https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n997
+    '''
+    assert len(payload_bytes) == payload_len
+    assert payload_len >= HASH_LEN*2
+    return {
+        'Y_bytes'  : payload_bytes[0:HASH_LEN],
+        'KH_bytes' : payload_bytes[HASH_LEN:HASH_LEN*2],
+        }
+
 # This table should be kept in sync with CELL_COMMAND
 CELL_UNPACK = {
     # Fixed-length Cells
@@ -661,8 +721,8 @@ CELL_UNPACK = {
 #   'CREATED'           : unpack_created_payload,
 #   'RELAY'             : unpack_relay_payload,
 #   'DESTROY'           : unpack_destroy_payload,
-#   'CREATE_FAST'       : unpack_create_fast_payload,
-#   'CREATED_FAST'      : unpack_created_fast_payload,
+    'CREATE_FAST'       : unpack_create_fast_payload,
+    'CREATED_FAST'      : unpack_created_fast_payload,
 
     'NETINFO'           : unpack_netinfo_payload,
 #   'RELAY_EARLY'       : unpack_relay_payload,
@@ -761,7 +821,8 @@ def format_cells(data_bytes, link_version_list=[3,4,5],
                 output_bytes = data_bytes if skip_zero_padding else cell[key]
                 result += "{} : {}\n".format(key,
                                              binascii.hexlify(output_bytes))
-                if not is_var_cell_flag:
+                if (not is_var_cell_flag and (key == 'cell_bytes' or
+                                              key == 'payload_bytes')):
                     zero_pad_len = len(cell[key]) - len(data_bytes)
                     result += "{}_{} : {}\n".format(key, 'zero_pad_len',
                                                     zero_pad_len)
