@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# Find out what cells can be sent before a VERSIONS cell.
+# Find out what happens when multiple VERSIONS cells are sent.
 # See https://trac.torproject.org/projects/tor/ticket/22931
 #
 # Tested: Python 2.7.13 on macOS 10.12.5 with OpenSSL 1.0.2l and tor 0.3.0.9.
