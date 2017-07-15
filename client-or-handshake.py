@@ -3,8 +3,6 @@
 # Tested: Python 2.7.13 on macOS 10.12.5 with OpenSSL 1.0.2l and tor 0.3.0.9.
 # (The default OpenSSL on macOS is *very* old.)
 
-# This script just sends a versions cell
-
 import binascii
 
 from endosome import *
