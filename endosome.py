@@ -298,7 +298,7 @@ def pack_cell(cell_command_string, link_version=None, circ_id=None,
 
 def unpack_value(byte_len, data_bytes):
     '''
-    Return a tupe containing the unpacked network-order unsigned
+    Return a tuple containing the unpacked network-order unsigned
     byte_len-byte field in data_bytes, and the remainder of data_bytes.
     Asserts if data_bytes is not at least byte_len bytes long.
     '''
