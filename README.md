@@ -31,7 +31,7 @@ Here they are in increasing order of complexity:
 * client-dir.{sh,py} (DirPort)
 * client-or-handshake-raw.{sh,py} (Raw Bytes, ORPort, SSL, Circuit Initiation)
 * handshake.txt (Annotated transcript of client-or-handshake-raw.{sh,py})
-* client-versions.py (Generic Cell Packing, ORPort, SSL, Versions Cell)
+* client-versions.py (Generic Cell Packing, Versions Cell, Response Unpacking)
 
 ## Reference Material
 

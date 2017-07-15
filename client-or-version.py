@@ -36,6 +36,8 @@ MAX_RESPONSE_LEN = 10*1024*1024
 REQUEST = pack_versions_cell()
 
 print 'SSL Server: {}:{}'.format(RELAYIP, ORPORT)
-print binascii.hexlify(REQUEST)
+#print '\nRequest Bytes:\n{}'.format(binascii.hexlify(REQUEST))
+print '\nRequest Cells:\n{}'.format(format_cells(REQUEST))
 response = ssl_request(RELAYIP, ORPORT, REQUEST, MAX_RESPONSE_LEN)
-print binascii.hexlify(response)
+#print '\nResponse Bytes:\n{}'.format(binascii.hexlify(response))
+print 'Response Cells:\n{}'.format(format_cells(response))
