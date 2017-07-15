@@ -485,6 +485,12 @@ def get_highest_common_version(remote_link_version_list,
         return None
     return max(common_set)
 
+# TODO:
+# pack_certs_cell
+# unpack_certs_payload (and verify certs)
+# pack_auth_challenge_cell
+# unpack_auth_challenge_payload
+
 def pack_padding_cell(link_version=None):
     '''
     Pack a fixed-length padding cell with random bytes, using link_version.
@@ -672,6 +678,8 @@ def pack_create_fast_cell(circ_id, link_version=None):
     '''
     Pack HASH_LEN random bytes into a fixed-length CREATE_FAST cell,
     opening circ_id using link_version.
+    This handshake should only be used after verifying the certificates
+    in the CERTS cell.
     See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n962
     '''
     return pack_cell('CREATE_FAST', circ_id=circ_id,

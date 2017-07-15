@@ -22,6 +22,7 @@ version_list = [4]
 link_version = version_list[-1]
 REQUEST  = pack_versions_cell(version_list)
 REQUEST += pack_netinfo_cell('127.0.0.1', link_version=link_version)
+# TODO: verify the certificates in the CERTS cell
 REQUEST += pack_create_fast_cell(get_min_valid_circ_id(link_version),
                                  link_version=link_version)
 
