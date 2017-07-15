@@ -33,6 +33,9 @@ Here they are in increasing order of complexity:
 * handshake.txt (Annotated transcript of client-or-handshake-raw.{sh,py})
 * client-versions.py (Generic Cell Packing, Versions Cell, Response Unpacking)
 
+Some scripts are designed to clarify ambiguities in the tor specification.
+They are named after the corresponding tor trac ticket number.
+
 ## Reference Material
 
 handshake.txt contains a hexdump of a typical handshake, and some working
