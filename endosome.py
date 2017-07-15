@@ -4,10 +4,13 @@
 # (The default OpenSSL on macOS is *very* old.)
 
 import binascii
+# ipaddress backport available for python 2.6, 2.7, 3.2
+import ipaddress
 import os
 import socket
 import ssl
 import struct
+import time
 
 # Connection utility functions
 
@@ -204,6 +207,7 @@ PACK_FMT = {
     1 : "!B",
     2 : "!H",
     4 : "!L",
+    8 : "!Q",
 }
 
 def get_pack_fmt(byte_len):
@@ -487,6 +491,168 @@ def pack_vpadding_cell(payload_len, link_version=None):
                      payload=get_random_bytes(payload_len),
                      link_version=link_version)
 
+RESOLVE_TYPE_LEN = 1
+RESOLVE_VALUE_LENGTH_LEN = 1
+RESOLVE_TTL_LEN = 4
+RESOLVE_ERROR_VALUE_LEN = 0
+
+# See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n1480
+ADDRESS_TYPE_HOST       = 0x00
+ADDRESS_TYPE_IPV4       = 0x04
+ADDRESS_TYPE_IPV6       = 0x06
+ADDRESS_ERROR_TRANSIENT = 0xF0
+ADDRESS_ERROR_PERMANENT = 0xF1
+
+IPV4_ADDRESS_LEN =  4
+IPV6_ADDRESS_LEN = 16
+
+MIN_RESOLVE_HEADER_LEN = RESOLVE_TYPE_LEN + RESOLVE_VALUE_LENGTH_LEN
+MIN_ADDRESS_LEN = MIN_RESOLVE_HEADER_LEN + IPV4_ADDRESS_LEN
+MIN_RESOLVE_LEN = MIN_RESOLVE_HEADER_LEN + RESOLVE_TTL_LEN
+
+def pack_resolve_error(error_type):
+    '''
+    Returns a packed address error_type value.
+    See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n1480
+        https://trac.torproject.org/projects/tor/ticket/22937
+    '''
+    result  = pack_value(RESOLVE_TYPE_LEN, error_type)
+    result += pack_value(RESOLVE_VALUE_LENGTH_LEN, RESOLVE_ERROR_VALUE_LEN)
+
+# TODO: unpack_resolve_error
+
+def pack_address(address):
+    '''
+    Returns a packed address.
+    See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n1480
+        https://trac.torproject.org/projects/tor/ticket/22937
+    '''
+    try:
+        addr_value = ipaddress.ip_address(unicode(address))
+        addr_type = addr_value.version
+        if addr_type == ADDRESS_TYPE_IPV4:
+            addr_len = IPV4_ADDRESS_LEN
+            addr_bytes = ipaddress.v4_int_to_packed(int(addr_value))
+        else:
+            addr_len = IPV6_ADDRESS_LEN
+            addr_bytes = ipaddress.v6_int_to_packed(int(addr_value))
+    except ValueError:
+        # must be a hostname
+        addr_bytes = address
+        addr_type = ADDRESS_TYPE_HOST
+        addr_len = len(address)
+
+    result  = pack_value(RESOLVE_TYPE_LEN, addr_type)
+    result += pack_value(RESOLVE_VALUE_LENGTH_LEN, addr_len)
+    assert len(addr_bytes) == addr_len
+    result += addr_bytes
+    return result
+
+def unpack_address(data_bytes):
+    '''
+    Return a tuple containing the unpacked IP address string in data_bytes,
+    and the remainder of data_bytes.
+    Asserts if data_bytes is shorter than MIN_ADDRESS_LEN.
+    '''
+    assert len(data_bytes) >= MIN_ADDRESS_LEN
+    temp_bytes = data_bytes
+    (type, temp_bytes) = unpack_value(RESOLVE_TYPE_LEN, temp_bytes)
+    (addr_len, temp_bytes) = unpack_value(RESOLVE_VALUE_LENGTH_LEN, temp_bytes)
+    addr_bytes = temp_bytes[0:addr_len]
+    if type == ADDRESS_TYPE_IPV4:
+        assert addr_len == IPV4_ADDRESS_LEN
+        addr_value = ipaddress.IPv4Address(bytes(addr_bytes))
+    elif type == ADDRESS_TYPE_IPV6:
+        assert addr_len == IPV6_ADDRESS_LEN
+        addr_value = ipaddress.IPv6Address(bytes(addr_bytes))
+    else:
+        raise ValueError("Unexpected address type: {}".format(type))
+    addr_string = str(addr_value)
+    return (addr_string, temp_bytes[addr_len:])
+
+def pack_resolve(address=None, error_type=None, ttl=None):
+    '''
+    Returns a packed address and ttl, or an error_type value and TTL.
+    If ttl is None, the TTL field is left out of the result.
+    Exactly one of address and error_type must be None.
+    Raises a ValueError if this condition is not satisfied.
+    See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n1480
+    '''
+    # Find the type
+    # Exactly one of these must be None
+    if address is None and error_type is None:
+        raise ValueError("Must supply exactly one of address or error_type")
+    elif address is not None:
+        result = pack_address(address, ttl)
+    elif error_type is not None:
+        result = pack_resolve_error(error_type, ttl)
+    else:
+        raise ValueError("Must supply exactly one of address or error_type")
+    if ttl is not None:
+        result += pack_value(RESOLVE_TTL_LEN, ttl)
+    return result
+
+# TODO: unpack_resolve
+
+TIMESTAMP_LEN = 4
+ADDRESS_COUNT_LEN = 1
+
+def pack_netinfo_cell(receiver_ip_string, sender_timestamp=None,
+                      sender_ip_list=None, link_version=None):
+    '''
+    Pack a fixed-length netinfo cell with sender_timestamp, receiver_ip_string,
+    and sender_ip_list, using link_version.
+    If sender_timestamp is None, uses the current time.
+    If sender_ip_list is None, no local IP addresses are sent..
+    See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n684
+        https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n1480
+    '''
+    if sender_timestamp is None:
+        sender_timestamp = int(time.time())
+    if sender_ip_list is None:
+        sender_ip_list = []
+    payload  = pack_value(TIMESTAMP_LEN, sender_timestamp)
+    payload += pack_address(receiver_ip_string)
+    payload += pack_value(ADDRESS_COUNT_LEN, len(sender_ip_list))
+    # The caller should ensure an IPv4 address is first
+    # See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n1503
+    for sender_ip_string in sender_ip_list:
+        payload += pack_address(sender_ip_string)
+    return pack_cell('NETINFO', payload=payload, link_version=link_version)
+
+def unpack_netinfo_payload(payload_len, payload_bytes):
+    '''
+    Unpack a netinfo cell payload from payload_bytes.
+    Returns a dict containing these keys:
+        'sender_timestamp'   : the sender's time in seconds since the epoch
+        'receiver_ip_string' : the public IP address of the receiving end of
+                               the connection, as seen by the sending node
+        'sender_ip_list'     : the public IP addresses of the sending end of
+                               the connection
+    Asserts if payload_bytes is not exactly payload_len bytes long.
+    See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n503
+    '''
+    assert len(payload_bytes) == payload_len
+    temp_bytes = payload_bytes
+    (sender_timestamp, temp_bytes) = unpack_value(TIMESTAMP_LEN, temp_bytes)
+    (receiver_ip_string, temp_bytes) = unpack_address(temp_bytes)
+    (sender_ip_count, temp_bytes) = unpack_value(ADDRESS_COUNT_LEN, temp_bytes)
+    # now parse the rest of the addresses
+    sender_ip_list = []
+    i = 0
+    while i < sender_ip_count:
+        assert len(temp_bytes) >= MIN_ADDRESS_LEN
+        (sender_ip_string, temp_bytes) = unpack_address(temp_bytes)
+        sender_ip_list.append(sender_ip_string)
+        i += 1
+        assert len(sender_ip_list) == sender_ip_count
+    # and construct the result
+    return {
+        'sender_timestamp'   : sender_timestamp,
+        'receiver_ip_string' : receiver_ip_string,
+        'sender_ip_list'     : sender_ip_list,
+        }
+
 # This table should be kept in sync with CELL_COMMAND
 CELL_UNPACK = {
     # Fixed-length Cells
@@ -498,7 +664,7 @@ CELL_UNPACK = {
 #   'CREATE_FAST'       : unpack_create_fast_payload,
 #   'CREATED_FAST'      : unpack_created_fast_payload,
 
-#   'NETINFO'           : unpack_netinfo_payload,
+    'NETINFO'           : unpack_netinfo_payload,
 #   'RELAY_EARLY'       : unpack_relay_payload,
 #   'CREATE2'           : unpack_create2_payload,
 #   'CREATED2'          : unpack_created2_payload,
