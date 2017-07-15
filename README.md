@@ -29,8 +29,9 @@ The scripts can be run in any order.
 
 Here they are in increasing order of complexity:
 * client-dir.{sh,py} (DirPort)
-* client-versions.py (ORPort, SSL, Versions Cell, Generic Cell Packing)
-* client-or-handshake.{sh,py} handshake.txt (ORPort, SSL, Circuit Initiation)
+* client-or-handshake-raw.{sh,py} (Raw Bytes, ORPort, SSL, Circuit Initiation)
+* handshake.txt (Annotated transcript of client-or-handshake-raw.{sh,py})
+* client-versions.py (Generic Cell Packing, ORPort, SSL, Versions Cell)
 
 ## Reference Material
 
