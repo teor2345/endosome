@@ -181,9 +181,11 @@ def get_cell_circ_id_len(link_version, cell_command_value=None):
     Get the circuit id length for link_version and cell_command_value
     See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n412
     '''
-    # a versions cell always has a 2-byte circuit id
-    if cell_command_value == get_cell_command_value('VERSIONS'):
-        return 2
+    # a versions cell always has a 2-byte circuit id, because it has
+    # a link_version of None, unless force_link_version is used
+    # See https://trac.torproject.org/projects/tor/ticket/22931
+    #if cell_command_value == get_cell_command_value('VERSIONS'):
+    #    return 2
     # early in the handshake, assume that all cells have 2-byte circ_ids
     # See https://trac.torproject.org/projects/tor/ticket/22929
     if link_version is None:
@@ -339,6 +341,8 @@ def unpack_cell_header(data_bytes, link_version=None):
         cell_len = get_cell_fixed_length(link_version)
         payload_len = MAX_FIXED_PAYLOAD_LEN
     # check the received data is long enough
+    # if you pass different versions in the request and response, you will
+    # probably trigger an assertion here
     assert len(data_bytes) >= cell_len
     assert len(temp_bytes) >= payload_len
     cell_bytes = data_bytes[0:cell_len]
@@ -401,17 +405,21 @@ def unpack_not_implemented_payload(payload_len, payload_bytes):
 
 VERSION_LEN = 2
 
-def pack_versions_cell(link_version_list=[3,4,5]):
+def pack_versions_cell(link_version_list=[3,4,5], force_link_version=None):
     '''
     Pack a versions cell with link_version_list.
+    If force_link_version is not None, use that circ_id_len.
     We use versions 3-5 to match ssl_request(), which initiates a version
     3 or later connection.
+    You must pass the same link_version_list when packing the request and
+    unpacking the response.
     See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n503
     '''
     packed_version_list = []
     for version in link_version_list:
         packed_version_list.append(pack_value(VERSION_LEN, version))
-    return pack_cell('VERSIONS', payload=''.join(packed_version_list))
+    return pack_cell('VERSIONS', payload=''.join(packed_version_list),
+                     link_version=force_link_version)
 
 def unpack_versions_payload(payload_len, payload_bytes):
     '''
@@ -437,6 +445,8 @@ def get_highest_common_version(remote_link_version_list,
     Returns the highest common version in remote_link_version_list and
     link_version_list.
     If there is no common version, returns None.
+    You must pass the same link_version_list when packing the request and
+    unpacking the response.
     '''
     remote_set = set(remote_link_version_list)
     local_set = set(link_version_list)
@@ -477,6 +487,8 @@ def unpack_cell(data_bytes, link_version=None):
     Calls unpack_cell_header(), then adds cell-command-specific fields,
     if available.
     Asserts if the cell structure is missing mandatory fields.
+    You must pass the same link_version_list when packing the request and
+    unpacking the response.
     '''
     (cell_structure, remaining_bytes) = unpack_cell_header(data_bytes,
                                                            link_version)
@@ -499,6 +511,8 @@ def unpack_cells(data_bytes, link_version_list=[3,4,5]):
     to interpret the cells.
     This may be None if there were multiple supported versions, and no
     VERSIONS cell was received.
+    You must pass the same link_version_list when packing the request and
+    unpacking the response.
     Asserts if data_bytes is not the exact length of the cells it contains.
     Asserts if there is no common link version.
     See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n503
@@ -527,6 +541,8 @@ def format_cells(data_bytes, link_version_list=[3,4,5],
     '''
     Unpack and format the cells in data_bytes using unpack_cells().
     Returns a string formatted according to the arguments.
+    You must pass the same link_version_list when packing the request and
+    unpacking the response.
     '''
     (link_version, cell_list) = unpack_cells(data_bytes, link_version_list)
     result  = "Link Version: {}\n".format(link_version)
