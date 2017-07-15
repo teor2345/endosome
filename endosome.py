@@ -4,6 +4,7 @@
 # (The default OpenSSL on macOS is *very* old.)
 
 import binascii
+import os
 import socket
 import ssl
 import struct
@@ -154,9 +155,10 @@ def get_cell_fixed_length(link_version):
     negotiated.
     See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n66
     '''
-    # if link_version is None, you shouldn't even be asking this question
+    # if link_version is None, you probably want a circ_id_len of 2
+    # See https://trac.torproject.org/projects/tor/ticket/22929
     if link_version is None:
-        return None
+        return 512
     assert link_version > 0
     if link_version < 4:
         return 512
@@ -234,10 +236,19 @@ def get_zero_pad(zero_pad_len):
     '''
     Return zero_pad_len zero bytes.
     '''
-    assert len >= 0
+    assert zero_pad_len >= 0
     zero_pad = pack_value(1, 0) * zero_pad_len
     assert len(zero_pad) == zero_pad_len
     return zero_pad
+
+def get_random_bytes(random_len):
+    '''
+    Return random_len cryptographically random bytes.
+    '''
+    assert random_len >= 0
+    result = os.urandom(random_len)
+    assert len(result) == random_len
+    return result
 
 def pack_cell(cell_command_string, link_version=None, circ_id=None,
               payload=None):
@@ -454,6 +465,27 @@ def get_highest_common_version(remote_link_version_list,
     if len(common_set) == 0:
         return None
     return max(common_set)
+
+def pack_padding_cell(link_version=None):
+    '''
+    Pack a fixed-length padding cell with random bytes, using link_version.
+    See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n419
+        https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n1534
+    '''
+    return pack_cell('PADDING',
+                     payload=get_random_bytes(MAX_FIXED_PAYLOAD_LEN),
+                     link_version=link_version)
+
+def pack_vpadding_cell(payload_len, link_version=None):
+    '''
+    Pack a variable-length padding cell with payload_len random bytes,
+    using link_version.
+    See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n419
+        https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n1534
+    '''
+    return pack_cell('VPADDING',
+                     payload=get_random_bytes(payload_len),
+                     link_version=link_version)
 
 # This table should be kept in sync with CELL_COMMAND
 CELL_UNPACK = {
