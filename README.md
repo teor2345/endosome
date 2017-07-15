@@ -33,6 +33,7 @@ Here they are in increasing order of complexity:
 * handshake.txt (Annotated transcript of client-or-handshake-raw.{sh,py})
 * client-versions.py (Cell Packing, VERSIONS Cell, Response Unpacking)
 * client-or-handshake.py (NETINFO Cell Packing & Unpacking)
+* client-or-circuit.py (CREATE[D]_FAST Cells, Circuit Creation)
 
 Some scripts are designed to clarify ambiguities in the tor specification.
 They are named after the corresponding tor trac ticket number.
