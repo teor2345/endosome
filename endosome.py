@@ -3,6 +3,7 @@
 # Tested: Python 2.7.13 on macOS 10.12.5 with OpenSSL 1.0.2l and tor 0.3.0.9.
 # (The default OpenSSL on macOS is *very* old.)
 
+import binascii
 import socket
 import ssl
 import struct
@@ -46,6 +47,7 @@ LINK_VERSION_DESC = {
 # Cell command field constants
 # https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n419
 
+# This table should be kept in sync with CELL_UNPACK
 CELL_COMMAND = {
     # Fixed-length Cells
     'PADDING'           :   0, # (Padding)                  (See Sec 7.2)
@@ -281,6 +283,122 @@ def pack_cell(cell_command_string, link_version=None, circ_id=None,
     assert len(cell) == cell_len
     return cell
 
+def unpack_value(byte_len, data_bytes):
+    '''
+    Return a tupe containing the unpacked network-order unsigned
+    byte_len-byte field in data_bytes, and the remainder of data_bytes.
+    Asserts if data_bytes is not at least byte_len bytes long.
+    '''
+    fmt = get_pack_fmt(byte_len)
+    assert struct.calcsize(fmt) == byte_len
+    assert len(data_bytes) >= byte_len
+    value_tuple = struct.unpack(fmt, data_bytes[0:byte_len])
+    assert len(value_tuple) == 1
+    value, = value_tuple
+    assert value >= 0
+    assert value < get_pack_limit(byte_len)
+    return (value, data_bytes[byte_len:])
+
+def unpack_cell_header(data_bytes, link_version=None):
+    '''
+    Unpack a cell header out of data_bytes for link_version.
+    link_version can be None before versions cells have been exchanged.
+    Returns a tuple containing a dict with the destructured cell contents,
+    and the remainder of byte string.
+    The returned dict contains the following string keys:
+        'link_version'        : an integer link version
+        'link_version_string' : a descriptive string for the link version
+        'is_var_cell_flag'    : is the cell a variable-length cell?
+        'cell_len'            : the length of the cell
+        'cell_bytes'          : the bytes that make up the cell
+        'circ_id_len'         : the length of the circuit id field
+        'circ_id'             : the circuit id
+        'cell_command_value'  : an integer cell command number
+        'cell_command_string' : a string representing the cell command
+        'payload_len'         : the length of the payload
+        'payload_bytes'       : the bytes in the payload
+        'is_payload_zero_bytes_flag' : is the payload all zero bytes?
+                                       (can indicate misinterpreted padding)
+    Asserts if data_bytes is not long enough for the cell's length.
+    See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n387
+        https://trac.torproject.org/projects/tor/ticket/22929
+    '''
+    # Work out how long everything is
+    circ_id_len = get_cell_circ_id_len(link_version)
+    temp_bytes = data_bytes
+    (circ_id, temp_bytes) = unpack_value(circ_id_len, temp_bytes)
+    (cell_command_value, temp_bytes) = unpack_value(CELL_COMMAND_LEN,
+                                                    temp_bytes)
+    is_var_cell_flag = is_cell_command_variable_length(cell_command_value)
+    if is_var_cell_flag:
+        (payload_len, temp_bytes) = unpack_value(PAYLOAD_LENGTH_LEN,
+                                                 temp_bytes)
+        cell_len = (circ_id_len + CELL_COMMAND_LEN + PAYLOAD_LENGTH_LEN +
+                    payload_len)
+    else:
+        cell_len = get_cell_fixed_length(link_version)
+        payload_len = MAX_FIXED_PAYLOAD_LEN
+    # check the received data is long enough
+    assert len(data_bytes) >= cell_len
+    assert len(temp_bytes) >= payload_len
+    cell_bytes = data_bytes[0:cell_len]
+    payload_bytes = temp_bytes[0:payload_len]
+    temp_bytes = temp_bytes[payload_len:]
+    is_payload_zero_bytes_flag = (payload_bytes == get_zero_pad(payload_len))
+    cell_structure = {
+        'link_version'        : link_version,
+        'link_version_string' : get_link_version_string(link_version),
+        'is_var_cell_flag'    : is_var_cell_flag,
+        'cell_len'            : cell_len,
+        'cell_bytes'          : cell_bytes,
+        'circ_id_len'         : circ_id_len,
+        'circ_id'             : circ_id,
+        'cell_command_value'  : cell_command_value,
+        'cell_command_string' : get_cell_command_string(cell_command_value),
+        'payload_len'         : payload_len,
+        'payload_bytes'       : payload_bytes,
+        'is_payload_zero_bytes_flag' : is_payload_zero_bytes_flag,
+        }
+    return (cell_structure, temp_bytes)
+
+# Unpack placeholders
+
+def unpack_unused_payload(payload_len, payload_bytes):
+    '''
+    Unpack an unused payload.
+    Returns a dictonary containing a placeholder key:
+        'is_payload_unused_flag' : always True
+    Asserts if payload_bytes is not exactly payload_len bytes long.
+    '''
+    assert len(payload_bytes) == payload_len
+    return {
+        'is_payload_unused_flag' : True,
+        }
+
+def unpack_unknown_payload(payload_len, payload_bytes):
+    '''
+    Unpack a payload for an unknown cell command.
+    Returns a dictonary containing a placeholder key:
+        'is_payload_unknown_flag' : always True
+    Asserts if payload_bytes is not exactly payload_len bytes long.
+    '''
+    assert len(payload_bytes) == payload_len
+    return {
+        'is_payload_unknown_flag' : True,
+        }
+
+def unpack_not_implemented_payload(payload_len, payload_bytes):
+    '''
+    Unpack a payload for a command that has no unpack implementation.
+    Returns a dictonary containing a placeholder key:
+        'is_payload_unpack_implemented_flag' : always False
+    Asserts if payload_bytes is not exactly payload_len bytes long.
+    '''
+    assert len(payload_bytes) == payload_len
+    return {
+        'is_payload_unpack_implemented_flag' : False,
+        }
+
 VERSION_LEN = 2
 
 def pack_versions_cell(link_version_list=[3,4,5]):
@@ -294,3 +412,145 @@ def pack_versions_cell(link_version_list=[3,4,5]):
     for version in link_version_list:
         packed_version_list.append(pack_value(VERSION_LEN, version))
     return pack_cell('VERSIONS', payload=''.join(packed_version_list))
+
+def unpack_versions_payload(payload_len, payload_bytes):
+    '''
+    Unpack a versions cell payload from payload_bytes.
+    Returns a dict containing a single key:
+        'link_version_list' : a list of supported integer link versions
+    Asserts if payload_bytes is not exactly payload_len bytes long.
+    See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n503
+    '''
+    assert len(payload_bytes) == payload_len
+    unpacked_version_list = []
+    temp_bytes = payload_bytes
+    while len(temp_bytes) >= VERSION_LEN:
+        (version, temp_bytes) = unpack_value(VERSION_LEN, temp_bytes)
+        unpacked_version_list.append(version)
+    return {
+        'link_version_list' : unpacked_version_list,
+        }
+
+def get_highest_common_version(remote_link_version_list,
+                               link_version_list=[3,4,5]):
+    '''
+    Returns the highest common version in remote_link_version_list and
+    link_version_list.
+    If there is no common version, returns None.
+    '''
+    remote_set = set(remote_link_version_list)
+    local_set = set(link_version_list)
+    common_set = remote_set.intersection(local_set)
+    if len(common_set) == 0:
+        return None
+    return max(common_set)
+
+# This table should be kept in sync with CELL_COMMAND
+CELL_UNPACK = {
+    # Fixed-length Cells
+    'PADDING'           : unpack_unused_payload,
+#   'CREATE'            : unpack_create_payload,
+#   'CREATED'           : unpack_created_payload,
+#   'RELAY'             : unpack_relay_payload,
+#   'DESTROY'           : unpack_destroy_payload,
+#   'CREATE_FAST'       : unpack_create_fast_payload,
+#   'CREATED_FAST'      : unpack_created_fast_payload,
+
+#   'NETINFO'           : unpack_netinfo_payload,
+#   'RELAY_EARLY'       : unpack_relay_payload,
+#   'CREATE2'           : unpack_create2_payload,
+#   'CREATED2'          : unpack_created2_payload,
+#   'PADDING_NEGOTIATE' : unpack_padding_negotiate_payload,
+
+    # Variable-length cells
+    'VERSIONS'          : unpack_versions_payload,
+
+    'VPADDING'          : unpack_unused_payload,
+#   'CERTS'             : unpack_certs_payload,
+#   'AUTH_CHALLENGE'    : unpack_auth_challenge_payload,
+#   'AUTHENTICATE'      : unpack_authenticate_payload,
+#   'AUTHORIZE'         : unpack_authorize_payload           # (Not yet used)
+}
+
+def unpack_cell(data_bytes, link_version=None):
+    '''
+    Calls unpack_cell_header(), then adds cell-command-specific fields,
+    if available.
+    Asserts if the cell structure is missing mandatory fields.
+    '''
+    (cell_structure, remaining_bytes) = unpack_cell_header(data_bytes,
+                                                           link_version)
+    cell_command_value = cell_structure['cell_command_value']
+    unpack_function = get_payload_unpack_function(cell_command_value)
+    payload_len = cell_structure['payload_len']
+    payload_bytes = cell_structure['payload_bytes']
+    payload_structure = unpack_function(payload_len, payload_bytes)
+    cell_structure.update(payload_structure)
+    return (cell_structure, remaining_bytes)
+
+def unpack_cells(data_bytes, link_version_list=[3,4,5]):
+    '''
+    Unpack a stream of cells out of data_bytes, using
+    link_version_list. If link_version_list has multiple
+    elements, and data_bytes contains a VERSIONS cell, the highest common
+    supported link version will be used to destructure subsequent cells.
+    Returns a tuple containing a list of dicts with the destructured cells'
+    contents, and the highest common supported link version, which is used
+    to interpret the cells.
+    This may be None if there were multiple supported versions, and no
+    VERSIONS cell was received.
+    Asserts if data_bytes is not the exact length of the cells it contains.
+    Asserts if there is no common link version.
+    See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n503
+    '''
+    link_version = None
+    cell_list = []
+    temp_bytes = data_bytes
+    while len(temp_bytes) >= get_cell_min_var_length(link_version):
+        (cell_structure, temp_bytes) = unpack_cell(temp_bytes, link_version)
+        cell_list.append(cell_structure)
+        # If it's a versions cell, interpret all future cells as the highest
+        # common supported version
+        # Should we ignore subsequent versions cells?
+        # See https://trac.torproject.org/projects/tor/ticket/22931
+        if cell_structure['cell_command_string'] == 'VERSIONS':
+            remote_version_list = cell_structure['link_version_list']
+            link_version = get_highest_common_version(
+                remote_version_list,
+                link_version_list)
+            assert link_version is not None
+    assert len(temp_bytes) == 0
+    return (link_version, cell_list)
+
+def format_cells(data_bytes, link_version_list=[3,4,5],
+                 skip_cell_bytes=True, skip_zero_padding=True):
+    '''
+    Unpack and format the cells in data_bytes using unpack_cells().
+    Returns a string formatted according to the arguments.
+    '''
+    (link_version, cell_list) = unpack_cells(data_bytes, link_version_list)
+    result  = "Link Version: {}\n".format(link_version)
+    result += "{} Cell(s):\n".format(len(cell_list))
+    for cell in cell_list:
+        result += '\n'
+        is_var_cell_flag = cell['is_var_cell_flag']
+        for key in sorted(cell.keys()):
+            if skip_cell_bytes and key == 'cell_bytes':
+                continue
+            if key.endswith('bytes'):
+                # add these extra fields when formatting so that they are
+                # added for every bytes field (and so we don't duplicate data)
+                data_bytes = cell[key]
+                if not is_var_cell_flag:
+                    # Just assume any zeroes at the end are padding
+                    data_bytes = data_bytes.rstrip('\0')
+                output_bytes = data_bytes if skip_zero_padding else cell[key]
+                result += "{} : {}\n".format(key,
+                                             binascii.hexlify(output_bytes))
+                if not is_var_cell_flag:
+                    zero_pad_len = len(cell[key]) - len(data_bytes)
+                    result += "{}_{} : {}\n".format(key, 'zero_pad_len',
+                                                    zero_pad_len)
+            else:
+                result += "{} : {}\n".format(key, cell[key])
+    return result
