@@ -31,7 +31,8 @@ Here they are in increasing order of complexity:
 * client-dir.{sh,py} (DirPort)
 * client-or-handshake-raw.{sh,py} (Raw Bytes, ORPort, SSL, Circuit Initiation)
 * handshake.txt (Annotated transcript of client-or-handshake-raw.{sh,py})
-* client-versions.py (Generic Cell Packing, Versions Cell, Response Unpacking)
+* client-versions.py (Cell Packing, VERSIONS Cell, Response Unpacking)
+* client-or-handshake.py (NETINFO Cell Packing & Unpacking)
 
 Some scripts are designed to clarify ambiguities in the tor specification.
 They are named after the corresponding tor trac ticket number.
