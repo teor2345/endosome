@@ -43,6 +43,7 @@ Tor Cells:
 
 Tor Links:
 * client-or-link.py (Negotiating the Link Version)
+* client-or-circuit-link.py (Send NETINFO and CREATE[D]_FAST cells)
 
 The other scripts are designed to clarify ambiguities in the tor specification.
 They are named after the corresponding tor trac ticket number.
