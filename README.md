@@ -9,6 +9,13 @@ relay over its ORPort.
 
 It doesn't keep your traffic private: use a real Tor client for that.
 
+## Dependencies
+
+If your python version doesn't come with the ipaddress module, install it using
+pip or similar.
+
+endosome was tested on macOS 10.12 with python 2.7 and OpenSSL 1.0.2.
+
 ## How does endosome work?
 
 Start a local tor relay using:
