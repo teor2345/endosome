@@ -133,6 +133,9 @@ LINK_VERSION_DESC = {
      5 : 'link padding and negotiation',
 }
 
+# The link version we use at the start of a connection
+INITIAL_LINK_VERSION = 3
+
 # Cell command field constants
 # https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n419
 
@@ -259,7 +262,7 @@ def get_cell_fixed_length(link_version):
     # if link_version is None, you probably want a circ_id_len of 2
     # See https://trac.torproject.org/projects/tor/ticket/22929
     if link_version is None:
-        return 512
+        return get_cell_fixed_length(INITIAL_LINK_VERSION)
     assert link_version > 0
     if link_version < 4:
         return 512
@@ -273,13 +276,10 @@ def get_cell_min_var_length(link_version, cell_command_value=None):
     length for a VERSIONS cell. Doesn't account for cell payloads.
     See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n399
     '''
-    # Assume the shorter cell length
-    if cell_command_value is None:
-        cell_command_value = get_cell_command_value('VERSIONS')
-    return (get_cell_circ_id_len(link_version, cell_command_value) +
+    return (get_cell_circ_id_len(link_version) +
             CELL_COMMAND_LEN + PAYLOAD_LENGTH_LEN)
 
-def get_cell_circ_id_len(link_version, cell_command_value=None):
+def get_cell_circ_id_len(link_version):
     '''
     Get the circuit id length for link_version and cell_command_value
     See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n412
@@ -287,12 +287,11 @@ def get_cell_circ_id_len(link_version, cell_command_value=None):
     # a versions cell always has a 2-byte circuit id, because it has
     # a link_version of None, unless force_link_version is used
     # See https://trac.torproject.org/projects/tor/ticket/22931
-    #if cell_command_value == get_cell_command_value('VERSIONS'):
-    #    return 2
+    #
     # early in the handshake, assume that all cells have 2-byte circ_ids
     # See https://trac.torproject.org/projects/tor/ticket/22929
     if link_version is None:
-        return 2
+        return get_cell_circ_id_len(INITIAL_LINK_VERSION)
     # don't check LINK_VERSION_DESC, that would assert on new link versions
     assert link_version > 0
     if link_version >= 1 and link_version <= 3:
@@ -306,6 +305,9 @@ def get_min_valid_circ_id(link_version, is_initiator_flag=True):
     See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n768
         https://trac.torproject.org/projects/tor/ticket/22882
     '''
+    if link_version is None:
+        return get_min_valid_circ_id(INITIAL_LINK_VERSION,
+                                     is_initiator_flag=is_initiator_flag)
     assert link_version > 0
     if link_version >= 4 and is_initiator_flag:
         # v4 initiators must set the most significant bit
@@ -383,7 +385,7 @@ def pack_cell(cell_command_string, link_version=None, circ_id=None,
     '''
     cell_command_value = get_cell_command_value(cell_command_string)
     # Work out how long everything is
-    circ_id_len = get_cell_circ_id_len(link_version, cell_command_value)
+    circ_id_len = get_cell_circ_id_len(link_version)
     payload_len = 0 if payload is None else len(payload)
     is_var_cell_flag = is_cell_command_variable_length(cell_command_value)
     if is_var_cell_flag:
