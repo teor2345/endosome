@@ -8,7 +8,7 @@ import binascii
 from endosome import *
 
 # The default IP and Port
-RELAYIP = "127.0.0.1"
+RELAYIP = '127.0.0.1'
 ORPORT = 12345
 
 MAX_RESPONSE_LEN = 10*1024*1024

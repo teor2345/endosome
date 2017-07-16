@@ -5,10 +5,10 @@
 from endosome import *
 
 # The default IP and Port
-RELAYIP = "127.0.0.1"
+RELAYIP = '127.0.0.1'
 DIRPORT = 23456
 
-REQUEST = "GET /tor/server/authority HTTP/1.0\r\n\r\n"
+REQUEST = 'GET /tor/server/authority HTTP/1.0\r\n\r\n'
 MAX_RESPONSE_LEN = 10*1024*1024
 
 # Request:
@@ -19,7 +19,7 @@ MAX_RESPONSE_LEN = 10*1024*1024
 #   Relay descriptor
 #   https://gitweb.torproject.org/torspec.git/tree/dir-spec.txt#n368
 
-#curl -v http://"$RELAYIP:$DIRPORT"/tor/server/authority
+#curl -v http://'$RELAYIP:$DIRPORT'/tor/server/authority
 
 print 'HTTP Server: {}:{}'.format(RELAYIP, DIRPORT)
 print REQUEST

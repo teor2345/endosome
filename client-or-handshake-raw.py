@@ -11,7 +11,7 @@ import os
 from endosome import *
 
 # The default IP and Port
-RELAYIP = "127.0.0.1"
+RELAYIP = '127.0.0.1'
 ORPORT = 12345
 
 MAX_RESPONSE_LEN = 10*1024*1024
@@ -48,13 +48,13 @@ MAX_RESPONSE_LEN = 10*1024*1024
 # CREATE_FAST: CircID(4)=0x80000000 CommandCode=CREATE_FAST Y(20)=RandomBytes
 #          ZeroPad(489)
 
-ZERO = "00"
+ZERO = '00'
 RANDOM_LEN = 20
 random_X = binascii.hexlify(os.urandom(RANDOM_LEN))
-REQUEST = ("0000" +     "07" + "0002" + "0004" +
-           "00000000" + "08" + "00000000" + "04" + "04" + "00000000" + "00" +
+REQUEST = ('0000' +     '07' + '0002' + '0004' +
+           '00000000' + '08' + '00000000' + '04' + '04' + '00000000' + '00' +
            ZERO*498 +
-           "80000000" + "05" + random_X +
+           '80000000' + '05' + random_X +
            ZERO*489)
 
 print 'SSL Server: {}:{}'.format(RELAYIP, ORPORT)

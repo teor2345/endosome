@@ -125,12 +125,12 @@ def ssl_request(ip, port, request_bytes,
 # https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n538
 
 LINK_VERSION_DESC = {
-  None : "negotiating link version",
-     1 : "certs up front",
-     2 : "renegotiation",
-     3 : "in-protocol",
-     4 : "circuit ID 4 bytes",
-     5 : "link padding and negotiation",
+  None : 'negotiating link version',
+     1 : 'certs up front',
+     2 : 'renegotiation',
+     3 : 'in-protocol',
+     4 : 'circuit ID 4 bytes',
+     5 : 'link padding and negotiation',
 }
 
 # Cell command field constants
@@ -170,7 +170,7 @@ def get_link_version_string(link_version):
     version value.
     '''
     return LINK_VERSION_DESC.get(link_version,
-                                 "UNKNOWN_LINK_VERSION_{}"
+                                 'UNKNOWN_LINK_VERSION_{}'
                                  .format(link_version))
 
 def get_cell_command_value(cell_command_string):
@@ -189,7 +189,7 @@ def get_cell_command_string(cell_command_value):
     for cell_command_string in CELL_COMMAND:
         if cell_command_value == get_cell_command_value(cell_command_string):
             return cell_command_string
-    return "UNKNOWN_CELL_COMMAND_{}".format(cell_command_value)
+    return 'UNKNOWN_CELL_COMMAND_{}'.format(cell_command_value)
 
 def get_payload_unpack_function(cell_command_value):
     '''
@@ -317,10 +317,10 @@ def get_min_valid_circ_id(link_version, is_initiator_flag=True):
 # struct formats. See
 # https://docs.python.org/2/library/struct.html#byte-order-size-and-alignment
 PACK_FMT = {
-    1 : "!B",
-    2 : "!H",
-    4 : "!L",
-    8 : "!Q",
+    1 : '!B',
+    2 : '!H',
+    4 : '!L',
+    8 : '!Q',
 }
 
 def get_pack_fmt(byte_len):
@@ -478,14 +478,14 @@ def unpack_cell_header(data_bytes, link_version=None):
     # Print out a diagnostic if we're about to assert
     # You might need to enable this for every cell to work out what's wrong
     if len(data_bytes) < cell_len or len(temp_bytes) < payload_len:
-        print "Cell Parsing Error"
-        print "Link Version: {} CircID Length: {}".format(link_version,
+        print 'Cell Parsing Error'
+        print 'Link Version: {} CircID Length: {}'.format(link_version,
                                                           circ_id_len)
-        print "Cell Length: Expected: {} Actual: {}".format(cell_len,
+        print 'Cell Length: Expected: {} Actual: {}'.format(cell_len,
                                                             len(data_bytes))
-        print "Payload Length: Expected: {} Actual: {}".format(payload_len,
+        print 'Payload Length: Expected: {} Actual: {}'.format(payload_len,
                                                                len(temp_bytes))
-        print "Data Bytes:\n{}".format(binascii.hexlify(data_bytes))
+        print 'Data Bytes:\n{}'.format(binascii.hexlify(data_bytes))
     # check the received data is long enough
     # if you parse a cell using the wrong link version, you will probably
     # trigger an assertion here
@@ -732,7 +732,7 @@ def unpack_address(data_bytes):
         assert addr_len == IPV6_ADDRESS_LEN
         addr_value = ipaddress.IPv6Address(bytes(addr_bytes))
     else:
-        raise ValueError("Unexpected address type: {}".format(type))
+        raise ValueError('Unexpected address type: {}'.format(type))
     addr_string = str(addr_value)
     return (addr_string, temp_bytes[addr_len:])
 
@@ -747,13 +747,13 @@ def pack_resolve(address=None, error_type=None, ttl=None):
     # Find the type
     # Exactly one of these must be None
     if address is None and error_type is None:
-        raise ValueError("Must supply exactly one of address or error_type")
+        raise ValueError('Must supply exactly one of address or error_type')
     elif address is not None:
         result = pack_address(address, ttl)
     elif error_type is not None:
         result = pack_resolve_error(error_type, ttl)
     else:
-        raise ValueError("Must supply exactly one of address or error_type")
+        raise ValueError('Must supply exactly one of address or error_type')
     if ttl is not None:
         result += pack_value(RESOLVE_TTL_LEN, ttl)
     return result
@@ -980,8 +980,8 @@ def format_cells(data_bytes, link_version_list=[3,4,5],
     '''
     (link_version, cell_list) = unpack_cells(data_bytes, link_version_list,
                                          force_link_version=force_link_version)
-    result  = "Link Version: {}\n".format(link_version)
-    result += "{} Cell(s):\n".format(len(cell_list))
+    result  = 'Link Version: {}\n'.format(link_version)
+    result += '{} Cell(s):\n'.format(len(cell_list))
     for cell in cell_list:
         result += '\n'
         is_var_cell_flag = cell['is_var_cell_flag']
@@ -996,15 +996,15 @@ def format_cells(data_bytes, link_version_list=[3,4,5],
                     # Just assume any zeroes at the end are padding
                     data_bytes = data_bytes.rstrip('\0')
                 output_bytes = data_bytes if skip_zero_padding else cell[key]
-                result += "{} : {}\n".format(key,
+                result += '{} : {}\n'.format(key,
                                              binascii.hexlify(output_bytes))
                 if (not is_var_cell_flag and (key == 'cell_bytes' or
                                               key == 'payload_bytes')):
                     zero_pad_len = len(cell[key]) - len(data_bytes)
-                    result += "{}_{} : {}\n".format(key, 'zero_pad_len',
+                    result += '{}_{} : {}\n'.format(key, 'zero_pad_len',
                                                     zero_pad_len)
             else:
-                result += "{} : {}\n".format(key, cell[key])
+                result += '{} : {}\n'.format(key, cell[key])
     return result
 
 def link_open(ip, port,
@@ -1219,5 +1219,5 @@ def link_format_context(context,
                                    skip_cell_bytes=skip_cell_bytes,
                                    skip_zero_padding=skip_zero_padding)
         else:
-            result += "{} : {}\n".format(key, context[key])
+            result += '{} : {}\n'.format(key, context[key])
     return result
