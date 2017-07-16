@@ -971,6 +971,47 @@ def unpack_cells(data_bytes, link_version_list=[3,4,5],
     assert len(temp_bytes) == 0
     return (link_version, cell_list)
 
+def get_link_version(context, force_link_version=None):
+    '''
+    Return force_link_version, if it is not None, or the link version from
+    context. Supports link and circuit contexts.
+    If both are None, or context does not have a link version, return None.
+    '''
+    if force_link_version is not None:
+        return force_link_version
+    # Use the link context from circuit contexts
+    if 'link' in context:
+        context = context['link']
+    return context.get('link_version')
+
+def get_link_version_list(context, force_link_version=None):
+    '''
+    Return [force_link_version], if it is not None, or the link version list
+    from context. Supports link and circuit contexts.
+    If both are None, or context does not have a link version, return an empty
+    list.
+    '''
+    if force_link_version is not None:
+        return [force_link_version]
+    # Use the link context from circuit contexts
+    if 'link' in context:
+        context = context['link']
+    return context.get('link_version_list', [])
+
+def unpack_cells_link(context, data_bytes,
+                      force_link_version=None):
+    '''
+    Call unpack_cells() with the appropriate values from the link context,
+    and return its result.
+    '''
+    link_version = get_link_version(context,
+                                    force_link_version=force_link_version)
+    link_version_list = get_link_version_list(context,
+                                    force_link_version=force_link_version)
+    return unpack_cells(data_bytes,
+                        link_version_list=link_version_list,
+                        force_link_version=link_version)
+
 def format_cells(data_bytes, link_version_list=[3,4,5],
                  force_link_version=None,
                  skip_cell_bytes=True, skip_zero_padding=True):
@@ -1028,6 +1069,7 @@ def link_open(ip, port,
 
     Returns a context dictionary required to continue the connection:
         'link_version'             : the Tor cell link version used on the link
+        'link_version_list'        : the list sent in the link VERSIONS cell
         'open_sent_cell_bytes'     : the cell bytes sent to open the connection
         'open_received_cell_bytes' : the cell bytes received when opening the
                                      connection
@@ -1060,6 +1102,7 @@ def link_open(ip, port,
         # We don't expect anything in response to our NETINFO
     context.update({
             'link_version'             : link_version,
+            'link_version_list'        : link_version_list,
             'open_sent_cell_bytes'     : open_sent_cell_bytes,
             'open_received_cell_bytes' : open_received_cell_bytes,
             })
@@ -1076,11 +1119,10 @@ def link_write_cell_list(context,
     Each dict in cell_list can have the following elements:
         cell_command_string, circ_id (optional), payload (optional),
         force_link_version (optional).
+    Returns the cell bytes sent on the wire.
     '''
     cell_bytes = ''
-    link_version = context['link_version']
-    if force_link_version is not None:
-        link_version = force_link_version
+    link_version = get_link_version(context, force_link_version)
     for cell in cell_list:
         cell_link_version = cell.get('force_link_version', link_version)
         cell_bytes += pack_cell(cell['cell_command_string'],
@@ -1088,6 +1130,7 @@ def link_write_cell_list(context,
                                 payload=cell.get('payload'),
                                 link_version=cell_link_version)
     ssl_write(context, cell_bytes)
+    return cell_bytes
 
 def make_cell(cell_command_string, circ_id=None, payload=None,
                  force_link_version=None):
@@ -1109,14 +1152,15 @@ def link_write_cell(context,
                     force_link_version=None):
     '''
     Write a Tor cell with cell_command_string, circ_id, and payload.
+    Returns the cell bytes sent on the wire.
     See link_write_cell_list() for details.    
     '''
     cell = make_cell(cell_command_string, circ_id=circ_id, payload=payload,
                      force_link_version=force_link_version)
-    link_write_cell_list(context,
-                         [cell],
-                         # This is redundant, but do it anyway
-                         force_link_version=force_link_version)
+    return link_write_cell_list(context,
+                                [cell],
+                                # This is redundant, but we do it anyway
+                                force_link_version=force_link_version)
     
 def link_read_cell_bytes(context,
                          force_link_version=None,
@@ -1128,9 +1172,7 @@ def link_read_cell_bytes(context,
     force_link_version overrides the link_version in context.
     '''
     received_bytes = ssl_read(context, max_response_len)
-    link_version = context['link_version']
-    if force_link_version is not None:
-        link_version = force_link_version
+    link_version = get_link_version(context, force_link_version)
     return received_bytes
 
 def link_close(context,
@@ -1202,53 +1244,80 @@ def link_request_cell(ip, port,
                                   max_response_len=max_response_len,
                                   do_shutdown=do_shutdown)
 
-def link_format_cell_bytes(context, cell_bytes,
-                           force_link_version=None,
-                           skip_cell_bytes=True, skip_zero_padding=True):
+def format_cell_bytes(context, cell_bytes,
+                      initial_cells=False,
+                      force_link_version=None,
+                      skip_cell_bytes=True, skip_zero_padding=True):
     '''
     Unpack and format the cells in cell_bytes using format_cells(), supplying
     the relevant arguments from context.
+    If initial_cells is True, automatically determines the link version from
+    the initial VERSIONS cell.
+    Supports link and circuit contexts.
     Returns a string formatted according to the arguments.
     '''
-    link_version = context.get('link_version')
-    if force_link_version is not None:
-        link_version = force_link_version
+    link_version = None
+    if not initial_cells:
+        link_version = get_link_version(context, force_link_version)
+    link_version_list = get_link_version_list(context,
+                                        force_link_version=force_link_version)
     return format_cells(cell_bytes,
-                        link_version_list=[link_version],
-                        # we must use force_link_version, because we already
-                        # know the link version from the context
+                        # we must use force_link_version, because only the
+                        # caller knows when we are parsing a VERSIONS cell
+                        link_version_list=link_version_list,
                         force_link_version=link_version,
                         skip_cell_bytes=skip_cell_bytes,
                         skip_zero_padding=skip_zero_padding)
 
-def link_format_context(context,
-                        force_link_version=None,
-                        skip_cell_bytes=True, skip_zero_padding=True,
-                        skip_cells=False):
+# compatibility with older scripts
+link_format_cell_bytes = format_cell_bytes
+
+def format_context(context,
+                   link_version=None,
+                   skip_cell_bytes=True, skip_zero_padding=True,
+                   skip_cells=False, skip_circuits=False,
+                   skip_link=False):
     '''
-    Format context, using link_format_cell_bytes() to format the cells in
-    context.
+    Format context, using format_cell_bytes() to format the cells in
+    context. Supports link and circuit contexts.
     Returns a string formatted according to the arguments.
     '''
     result = ''
-    link_version = context['link_version']
-    if force_link_version:
-        link_version = force_link_version
     for key in sorted(context.keys()):
         if key.endswith('cell_bytes'):
             if skip_cells:
                 continue
             # we know the link version, unless it's the initial versions
             # cell on either side
-            cell_link_version = link_version
-            if key.startswith('open'):
-                cell_link_version = None
-            result += '{} cells:\n'.format(key)
-            result += format_cells(context[key],
-                                   link_version_list=[link_version],
-                                   force_link_version=cell_link_version,
+            initial_cells = key.startswith('open')
+            result += '\n{} cells:\n'.format(key)
+            result += format_cell_bytes(context, context[key],
+                                   initial_cells=initial_cells,
+                                   force_link_version=link_version,
                                    skip_cell_bytes=skip_cell_bytes,
                                    skip_zero_padding=skip_zero_padding)
+        elif key.endswith('bytes'):
+            result += '{} : {}\n'.format(key, binascii.hexlify(context[key]))
         else:
             result += '{} : {}\n'.format(key, context[key])
     return result
+
+def link_format_context(context,
+                        force_link_version=None,
+                        skip_cell_bytes=True, skip_zero_padding=True,
+                        skip_cells=False, skip_circuits=False,
+                        skip_link=False):
+    '''
+    Format context, using format_context() to format the cells in
+    context.
+    Returns a string formatted according to the arguments.
+    '''
+    link_version = get_link_version(context, force_link_version)
+    return format_context(context,
+                          link_version=link_version,
+                          skip_cell_bytes=skip_cell_bytes,
+                          skip_zero_padding=skip_zero_padding,
+                          skip_cells=skip_cells,
+                          skip_circuits=skip_circuits,
+                          # Don't recurse endlessly
+                          skip_link=True)
