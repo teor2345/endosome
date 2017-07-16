@@ -27,15 +27,24 @@ Scripts with the same basename do the same thing in different languages.
 
 The scripts can be run in any order.
 
-Here they are in increasing order of complexity:
+Here they are in increasing order of abstraction:
+
+DirPort:
 * client-dir.{sh,py} (DirPort)
+
+Raw ORPort Bytes:
 * client-or-handshake-raw.{sh,py} (Raw Bytes, ORPort, SSL, Circuit Initiation)
 * handshake.txt (Annotated transcript of client-or-handshake-raw.{sh,py})
-* client-versions.py (Cell Packing, VERSIONS Cell, Response Unpacking)
-* client-or-handshake.py (NETINFO Cell Packing & Unpacking)
-* client-or-circuit.py (CREATE[D]_FAST Cells, Circuit Creation)
 
-Some scripts are designed to clarify ambiguities in the tor specification.
+Tor Cells:
+* client-or-versions-cell.py (Cell Packing, VERSIONS Cell, Response Unpacking)
+* client-or-handshake-cell.py (NETINFO Cell Packing & Unpacking)
+* client-or-circuit-cell.py (CREATE[D]_FAST Cells, Circuit Creation)
+
+Tor Links:
+* client-or-link.py (Negotiating the Link Version)
+
+The other scripts are designed to clarify ambiguities in the tor specification.
 They are named after the corresponding tor trac ticket number.
 
 ## Reference Material
