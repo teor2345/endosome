@@ -455,9 +455,20 @@ def unpack_cell_header(data_bytes, link_version=None):
     else:
         cell_len = get_cell_fixed_length(link_version)
         payload_len = MAX_FIXED_PAYLOAD_LEN
+    # Print out a diagnostic if we're about to assert
+    # You might need to enable this for every cell to work out what's wrong
+    if len(data_bytes) < cell_len or len(temp_bytes) < payload_len:
+        print "Cell Parsing Error"
+        print "Link Version: {} CircID Length: {}".format(link_version,
+                                                          circ_id_len)
+        print "Cell Length: Expected: {} Actual: {}".format(cell_len,
+                                                            len(data_bytes))
+        print "Payload Length: Expected: {} Actual: {}".format(payload_len,
+                                                               len(temp_bytes))
+        print "Data Bytes:\n{}".format(binascii.hexlify(data_bytes))
     # check the received data is long enough
-    # if you pass different versions in the request and response, you will
-    # probably trigger an assertion here
+    # if you parse a cell using the wrong link version, you will probably
+    # trigger an assertion here
     assert len(data_bytes) >= cell_len
     assert len(temp_bytes) >= payload_len
     cell_bytes = data_bytes[0:cell_len]
