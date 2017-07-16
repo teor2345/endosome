@@ -520,6 +520,20 @@ def unpack_not_implemented_payload(payload_len, payload_bytes):
 
 VERSION_LEN = 2
 
+def pack_versions_payload(link_version_list=[3,4,5]):
+    '''
+    Pack a versions payload with link_version_list.
+    We use versions 3-5 to match ssl_request(), which initiates a version
+    3 or later connection.
+    You must pass the same link_version_list when packing the request and
+    unpacking the response.
+    See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n503
+    '''
+    packed_version_list = []
+    for version in link_version_list:
+        packed_version_list.append(pack_value(VERSION_LEN, version))
+    return ''.join(packed_version_list)
+
 def pack_versions_cell(link_version_list=[3,4,5], force_link_version=None):
     '''
     Pack a versions cell with link_version_list.
@@ -530,10 +544,8 @@ def pack_versions_cell(link_version_list=[3,4,5], force_link_version=None):
     unpacking the response.
     See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n503
     '''
-    packed_version_list = []
-    for version in link_version_list:
-        packed_version_list.append(pack_value(VERSION_LEN, version))
-    return pack_cell('VERSIONS', payload=''.join(packed_version_list),
+    return pack_cell('VERSIONS',
+                     payload=pack_versions_payload(link_version_list),
                      link_version=force_link_version)
 
 def unpack_versions_payload(payload_len, payload_bytes):
@@ -572,29 +584,44 @@ def get_highest_common_version(remote_link_version_list,
 
 # TODO:
 # pack_certs_cell
+# pack_certs_payload
 # unpack_certs_payload (and verify certs)
 # pack_auth_challenge_cell
+# pack_auth_challenge_payload
 # unpack_auth_challenge_payload
+
+def pack_padding_payload():
+    '''
+    Pack a fixed-length padding cell's payload with random bytes.
+    See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n419
+        https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n1534
+    '''
+    return get_random_bytes(MAX_FIXED_PAYLOAD_LEN)
 
 def pack_padding_cell(link_version=None):
     '''
     Pack a fixed-length padding cell with random bytes, using link_version.
+    '''
+    return pack_cell('PADDING',
+                     payload=pack_padding_payload(),
+                     link_version=link_version)
+
+def pack_vpadding_payload(payload_len):
+    '''
+    Pack a variable-length padding cell's payload with payload_len random
+    bytes.
     See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n419
         https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n1534
     '''
-    return pack_cell('PADDING',
-                     payload=get_random_bytes(MAX_FIXED_PAYLOAD_LEN),
-                     link_version=link_version)
+    return get_random_bytes(payload_len)
 
 def pack_vpadding_cell(payload_len, link_version=None):
     '''
     Pack a variable-length padding cell with payload_len random bytes,
     using link_version.
-    See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n419
-        https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n1534
     '''
     return pack_cell('VPADDING',
-                     payload=get_random_bytes(payload_len),
+                     payload=pack_vpadding_payload(payload_len),
                      link_version=link_version)
 
 RESOLVE_TYPE_LEN = 1
@@ -703,10 +730,10 @@ def pack_resolve(address=None, error_type=None, ttl=None):
 TIMESTAMP_LEN = 4
 ADDRESS_COUNT_LEN = 1
 
-def pack_netinfo_cell(receiver_ip_string, sender_timestamp=None,
-                      sender_ip_list=None, link_version=None):
+def pack_netinfo_payload(receiver_ip_string, sender_timestamp=None,
+                         sender_ip_list=None):
     '''
-    Pack a fixed-length netinfo cell with sender_timestamp, receiver_ip_string,
+    Pack a netinfo payload with sender_timestamp, receiver_ip_string,
     and sender_ip_list, using link_version.
     If sender_timestamp is None, uses the current time.
     If sender_ip_list is None, no local IP addresses are sent..
@@ -724,6 +751,19 @@ def pack_netinfo_cell(receiver_ip_string, sender_timestamp=None,
     # See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n1503
     for sender_ip_string in sender_ip_list:
         payload += pack_address(sender_ip_string)
+    return payload
+
+def pack_netinfo_cell(receiver_ip_string, sender_timestamp=None,
+                      sender_ip_list=None, link_version=None):
+    '''
+    Pack a fixed-length netinfo cell with sender_timestamp, receiver_ip_string,
+    and sender_ip_list, using link_version.
+    If sender_timestamp is None, uses the current time.
+    If sender_ip_list is None, no local IP addresses are sent..
+    '''
+    payload = pack_netinfo_payload(receiver_ip_string,
+                                   sender_timestamp=sender_timestamp,
+                                   sender_ip_list=sender_ip_list)
     return pack_cell('NETINFO', payload=payload, link_version=link_version)
 
 def unpack_netinfo_payload(payload_len, payload_bytes):
@@ -759,16 +799,22 @@ def unpack_netinfo_payload(payload_len, payload_bytes):
         'sender_ip_list'     : sender_ip_list,
         }
 
+def pack_create_fast_payload():
+    '''
+    Pack HASH_LEN random bytes into a CREATE_FAST payload.
+    See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n962
+    '''
+    return get_random_bytes(HASH_LEN)
+
 def pack_create_fast_cell(circ_id, link_version=None):
     '''
     Pack HASH_LEN random bytes into a fixed-length CREATE_FAST cell,
     opening circ_id using link_version.
     This handshake should only be used after verifying the certificates
     in the CERTS cell.
-    See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n962
     '''
     return pack_cell('CREATE_FAST', circ_id=circ_id,
-                     payload=get_random_bytes(HASH_LEN),
+                     payload=pack_create_fast_payload(),
                      link_version=link_version)
 
 def unpack_create_fast_payload(payload_len, payload_bytes):
