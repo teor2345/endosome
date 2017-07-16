@@ -955,15 +955,15 @@ def unpack_cells(data_bytes, link_version_list=[3,4,5],
     cell_list = []
     temp_bytes = data_bytes
     while len(temp_bytes) >= get_cell_min_var_length(link_version):
-        (cell_structure, temp_bytes) = unpack_cell(temp_bytes, link_version)
-        cell_list.append(cell_structure)
+        (cell, temp_bytes) = unpack_cell(temp_bytes, link_version)
+        cell_list.append(cell)
         # If it's a versions cell, interpret all future cells as the highest
         # common supported version
         # Should we ignore subsequent versions cells?
         # See https://trac.torproject.org/projects/tor/ticket/22931
-        if (cell_structure['cell_command_string'] == 'VERSIONS' and
+        if (cell['cell_command_string'] == 'VERSIONS' and
             link_version is None):
-            remote_version_list = cell_structure['link_version_list']
+            remote_version_list = cell['link_version_list']
             link_version = get_highest_common_version(
                 remote_version_list,
                 link_version_list)
