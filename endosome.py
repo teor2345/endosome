@@ -962,7 +962,7 @@ def unpack_cells(data_bytes, link_version_list=[3,4,5],
         # Should we ignore subsequent versions cells?
         # See https://trac.torproject.org/projects/tor/ticket/22931
         if (cell_structure['cell_command_string'] == 'VERSIONS' and
-            force_link_version is None):
+            link_version is None):
             remote_version_list = cell_structure['link_version_list']
             link_version = get_highest_common_version(
                 remote_version_list,
