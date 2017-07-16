@@ -219,6 +219,19 @@ def is_cell_command_variable_length(cell_command_value):
         return True
     return False
 
+def is_cell_command_circuit(cell_command_value):
+    '''
+    Returns True if cell_command_value is a circuit command,
+    and False otherwise.
+    See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n455
+    '''
+    cell_command_string = get_cell_command_string(cell_command_value)
+    if (cell_command_string.startswith('CREATE') or
+        cell_command_string.startswith('RELAY') or
+        cell_command_string.startswith('DESTROY')):
+        return True
+    return False
+
 # Security parameters
 # See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n46
 #     https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n101
@@ -360,7 +373,11 @@ def pack_cell(cell_command_string, link_version=None, circ_id=None,
     Pack a cell for link_version, on circuit circ_id,
     with command cell_command_string and payload.
     link_version can be None for VERSIONS cells.
-    circ_id can be None for link-level cells.
+    circ_id can be None, if it is, a valid circ_id is chosen:
+        * 0 for link-level cells, or
+        * get_min_valid_circ_id(link_version) for circuit-level cells.
+      If you want to build more than one circuit on a connection, you'll have
+      to supply unique circuit IDs yourself.
     payload can be None when allowed by the cell command.
     See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n387
     '''
@@ -380,7 +397,10 @@ def pack_cell(cell_command_string, link_version=None, circ_id=None,
 
     # Now pack it all in
     if circ_id is None:
-        circ_id = 0
+        if is_cell_command_circuit(cell_command_value):
+            circ_id = get_min_valid_circ_id(link_version)
+        else:
+            circ_id = 0
     cell = pack_value(circ_id_len, circ_id)
 
     # byte order is irrelevant in this case
