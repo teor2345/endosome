@@ -332,12 +332,12 @@ def get_pack_fmt(byte_len):
     '''
     return PACK_FMT[byte_len]
 
-def get_pack_limit(byte_len):
+def get_pack_max(byte_len):
     '''
     Returns the maximum unsigned value that will fit in byte_len.
     '''
     assert byte_len > 0
-    return 2**(8*byte_len)
+    return 2**(8*byte_len) - 1
 
 def pack_value(byte_len, value):
     '''
@@ -348,7 +348,7 @@ def pack_value(byte_len, value):
     fmt = get_pack_fmt(byte_len)
     assert struct.calcsize(fmt) == byte_len
     assert value >= 0
-    assert value < get_pack_limit(byte_len)
+    assert value <= get_pack_max(byte_len)
     return struct.pack(fmt, value)
 
 def get_zero_pad(zero_pad_len):
@@ -435,7 +435,7 @@ def unpack_value(byte_len, data_bytes):
     assert len(value_tuple) == 1
     value, = value_tuple
     assert value >= 0
-    assert value < get_pack_limit(byte_len)
+    assert value <= get_pack_max(byte_len)
     return (value, data_bytes[byte_len:])
 
 def unpack_cell_header(data_bytes, link_version=None):
