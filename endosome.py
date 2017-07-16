@@ -593,8 +593,10 @@ def get_highest_common_version(remote_link_version_list,
 def pack_padding_payload():
     '''
     Pack a fixed-length padding cell's payload with random bytes.
+    (Tor uses zero bytes, which isn't what the spec says.)
     See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n419
         https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n1534
+        https://trac.torproject.org/projects/tor/ticket/22948
     '''
     return get_random_bytes(MAX_FIXED_PAYLOAD_LEN)
 
