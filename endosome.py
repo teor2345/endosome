@@ -479,8 +479,8 @@ def unpack_cell_header(data_bytes, link_version=None):
         payload_len = MAX_FIXED_PAYLOAD_LEN
     # Print out a diagnostic if we're about to assert
     # You might need to enable this for every cell to work out what's wrong
-    if len(data_bytes) < cell_len or len(temp_bytes) < payload_len:
-        print 'Cell Parsing Error'
+    if len(data_bytes) < cell_len or len(temp_bytes) < payload_len: # or True:
+        print 'Cell Parsing Details:'
         print 'Link Version: {} CircID Length: {}'.format(link_version,
                                                           circ_id_len)
         print 'Cell Length: Expected: {} Actual: {}'.format(cell_len,
