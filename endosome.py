@@ -1011,13 +1011,21 @@ def format_cells(data_bytes, link_version_list=[3,4,5],
 
 def link_open(ip, port,
               link_version_list=[3,4,5], force_link_version=None,
+              send_netinfo=True, sender_timestamp=None, sender_ip_list=None,
               max_response_len=MAX_READ_BUFFER_LEN):
     '''
     Open a link-level Tor connection to ip and port, using the highest
     link version in link_version_list supported by both sides.
+    force_link_version overrides the negotiated link_version.
+
+    If send_netinfo is true, send a NETINFO cell after the link version
+    is negotiated, using ip as the receiver IP address, sender_timestamp
+    and sender_ip_list. NETINFO cells are required by Tor.
+    See https://trac.torproject.org/projects/tor/ticket/22951
+
     max_response_len is the maximum response size that will be read from the
     connection while setting up the link.
-    force_link_version overrides the negotiated link_version.
+
     Returns a context dictionary required to continue the connection:
         'link_version'             : the Tor cell link version used on the link
         'open_sent_cell_bytes'     : the cell bytes sent to open the connection
@@ -1026,23 +1034,34 @@ def link_open(ip, port,
         'ssl_socket'               : a SSL-wrapped TCP socket connected to ip
                                     and port
         'tcp_socket'               : a TCP socket connected to ip and port
+
     Unless you're using a *very* weird version of OpenSSL, this initiates
     a Tor link version 3 or later connection.
     See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n226
     '''
     context = ssl_open(ip, port)
     versions_cell_bytes = pack_versions_cell(link_version_list)
+    open_sent_cell_bytes = versions_cell_bytes
     ssl_write(context, versions_cell_bytes)
-    response_bytes = ssl_read(context, max_response_len)
-    (link_version, _) = unpack_cells(response_bytes,
+    open_received_cell_bytes = ssl_read(context, max_response_len)
+    (link_version, _) = unpack_cells(open_received_cell_bytes,
                                      link_version_list=link_version_list,
                                      force_link_version=force_link_version)
     if force_link_version:
         link_version = force_link_version
+    # Now we know the link version, send a netinfo cell
+    if send_netinfo:
+        netinfo_cell_bytes = pack_netinfo_cell(ip,
+                                             sender_timestamp=sender_timestamp,
+                                             sender_ip_list=sender_ip_list,
+                                             link_version=link_version)
+        open_sent_cell_bytes += netinfo_cell_bytes
+        ssl_write(context, netinfo_cell_bytes)
+        # We don't expect anything in response to our NETINFO
     context.update({
             'link_version'             : link_version,
-            'open_sent_cell_bytes'     : versions_cell_bytes,
-            'open_received_cell_bytes' : response_bytes,
+            'open_sent_cell_bytes'     : open_sent_cell_bytes,
+            'open_received_cell_bytes' : open_received_cell_bytes,
             })
     return context
 
@@ -1127,6 +1146,8 @@ def link_close(context,
 def link_request_cell_list(ip, port,
                            cell_list,
                            link_version_list=[3,4,5], force_link_version=None,
+                           send_netinfo=True, sender_timestamp=None,
+                           sender_ip_list=None,
                            max_response_len=MAX_READ_BUFFER_LEN,
                            do_shutdown=True):
     '''
@@ -1143,6 +1164,9 @@ def link_request_cell_list(ip, port,
     context = link_open(ip, port,
                         link_version_list=link_version_list,
                         force_link_version=force_link_version,
+                        send_netinfo=send_netinfo,
+                        sender_timestamp=sender_timestamp,
+                        sender_ip_list=sender_ip_list,
                         max_response_len=max_response_len)
     link_write_cell_list(context,
                          cell_list,
@@ -1158,6 +1182,8 @@ def link_request_cell_list(ip, port,
 def link_request_cell(ip, port,
                       cell_command_string, circ_id=None, payload=None,
                       link_version_list=[3,4,5], force_link_version=None,
+                      send_netinfo=True, sender_timestamp=None,
+                      sender_ip_list=None,
                       max_response_len=MAX_READ_BUFFER_LEN,
                       do_shutdown=True):
     '''
@@ -1170,6 +1196,9 @@ def link_request_cell(ip, port,
                                   [cell],
                                   link_version_list=link_version_list,
                                   force_link_version=force_link_version,
+                                  send_netinfo=send_netinfo,
+                                  sender_timestamp=sender_timestamp,
+                                  sender_ip_list=sender_ip_list,
                                   max_response_len=max_response_len,
                                   do_shutdown=do_shutdown)
 
