@@ -14,27 +14,110 @@ import time
 
 # Connection utility functions
 
-def tcp_request(ip, port, request, max_response_len):
+MAX_READ_BUFFER_LEN = 10*1024*1024
+
+def tcp_open(ip, port):
+    '''
+    Send a TCP request to ip and port.
+    Returns a context dictionary required to continue the connection:
+        'tcp_socket'  : a TCP socket connected to ip and port
+    '''
+    tcp_socket = socket.create_connection((ip, port))
+    return {
+        'tcp_socket' : tcp_socket,
+        }
+
+def tcp_write(context, request_bytes):
+    '''
+    Send a TCP request to the tcp_socket in context.
+    '''
+    context['tcp_socket'].sendall(request_bytes)
+
+def tcp_read(context, max_response_len=MAX_READ_BUFFER_LEN):
+    '''
+    Reads and returns at most max_response_len bytes from the tcp_socket in
+    context.
+    '''
+    return context['tcp_socket'].recv(max_response_len)
+
+def tcp_close(context, do_shutdown=True):
+    '''
+    Closes the tcp_socket in context.
+    If do_shutdown is True, shut down communication on the socket immediately,
+    rather than waiting for the system to potentially clear buffers.
+    '''
+    if do_shutdown:
+        context['tcp_socket'].shutdown(socket.SHUT_RDWR)
+    context['tcp_socket'].close()
+
+def tcp_request(ip, port, request_bytes,
+                max_response_len=MAX_READ_BUFFER_LEN, do_shutdown=True):
     '''
     Send a TCP request to ip and port, and return at most max_response_len
-    bytes of the response.
+    bytes of the response. If do_shutdown is True, shut down the socket
+    immediately after reading the response.
     '''
-    dsock = socket.create_connection((ip, port))
-    dsock.sendall(request)
-    return dsock.recv(max_response_len)
+    context = tcp_open(ip, port)
+    tcp_write(context, request_bytes)
+    response_bytes = tcp_read(context, max_response_len)
+    tcp_close(context, do_shutdown)
+    return response_bytes
 
-def ssl_request(ip, port, request, max_response_len):
+def ssl_open(ip, port):
     '''
-    Send a SSL request to ip and port, and return at most max_response_len
-    bytes of the response.
+    Open a SSL connection to ip and port.
+    Returns a context dictionary required to continue the connection:
+        'ssl_socket'  : a SSL-wrapped TCP socket connected to ip and port
+        'tcp_socket'  : a TCP socket connected to ip and port
     Unless you're using a *very* weird version of OpenSSL, this initiates
     a Tor link version 3 or later connection.
     See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n226
     '''
-    dsock = socket.create_connection((ip, port))
-    ssock = ssl.wrap_socket(dsock)
-    ssock.sendall(request)
-    return ssock.recv(max_response_len)
+    context = tcp_open(ip, port)
+    ssl_socket = ssl.wrap_socket(context['tcp_socket'])
+    context.update({
+            'ssl_socket' : ssl_socket
+            })
+    return context
+
+def ssl_write(context, request_bytes):
+    '''
+    Send a SSL request to the ssl_socket in context.
+    '''
+    context['ssl_socket'].sendall(request_bytes)
+
+def ssl_read(context, max_response_len=MAX_READ_BUFFER_LEN):
+    '''
+    Reads and returns at most max_response_len bytes from the ssl_socket in
+    context.
+    '''
+    return context['ssl_socket'].recv(max_response_len)
+
+def ssl_close(context, do_shutdown=True):
+    '''
+    Closes the ssl_socket in context.
+    If do_shutdown is True, shut down communication on the socket immediately,
+    rather than waiting for the system to potentially clear buffers.
+    '''
+    if do_shutdown:
+        context['ssl_socket'].shutdown(socket.SHUT_RDWR)
+    context['ssl_socket'].close()
+
+def ssl_request(ip, port, request_bytes,
+                max_response_len=MAX_READ_BUFFER_LEN, do_shutdown=True):
+    '''
+    Send a SSL request to ip and port, and return at most max_response_len
+    bytes of the response. If do_shutdown is True, shut down the socket
+    immediately after reading the response.
+    Unless you're using a *very* weird version of OpenSSL, this makes
+    a Tor link version 3 or later connection.
+    See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n226
+    '''
+    context = ssl_open(ip, port)
+    ssl_write(context, request_bytes)
+    response_bytes = ssl_read(context, max_response_len)
+    ssl_close(context, do_shutdown)
+    return response_bytes
 
 # Link version constants
 # https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n538
@@ -766,7 +849,8 @@ def unpack_cell(data_bytes, link_version=None):
     cell_structure.update(payload_structure)
     return (cell_structure, remaining_bytes)
 
-def unpack_cells(data_bytes, link_version_list=[3,4,5]):
+def unpack_cells(data_bytes, link_version_list=[3,4,5],
+                 force_link_version=None):
     '''
     Unpack a stream of cells out of data_bytes, using
     link_version_list. If link_version_list has multiple
@@ -776,14 +860,15 @@ def unpack_cells(data_bytes, link_version_list=[3,4,5]):
     contents, and the highest common supported link version, which is used
     to interpret the cells.
     This may be None if there were multiple supported versions, and no
-    VERSIONS cell was received.
+    VERSIONS cell was received, or if there were no common link versions.
     You must pass the same link_version_list when packing the request and
     unpacking the response.
+    force_link_version overrides any negotiated link version.
     Asserts if data_bytes is not the exact length of the cells it contains.
     Asserts if there is no common link version.
     See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n503
     '''
-    link_version = None
+    link_version = force_link_version
     cell_list = []
     temp_bytes = data_bytes
     while len(temp_bytes) >= get_cell_min_var_length(link_version):
@@ -793,7 +878,8 @@ def unpack_cells(data_bytes, link_version_list=[3,4,5]):
         # common supported version
         # Should we ignore subsequent versions cells?
         # See https://trac.torproject.org/projects/tor/ticket/22931
-        if cell_structure['cell_command_string'] == 'VERSIONS':
+        if (cell_structure['cell_command_string'] == 'VERSIONS' and
+            force_link_version is None):
             remote_version_list = cell_structure['link_version_list']
             link_version = get_highest_common_version(
                 remote_version_list,
@@ -803,6 +889,7 @@ def unpack_cells(data_bytes, link_version_list=[3,4,5]):
     return (link_version, cell_list)
 
 def format_cells(data_bytes, link_version_list=[3,4,5],
+                 force_link_version=None,
                  skip_cell_bytes=True, skip_zero_padding=True):
     '''
     Unpack and format the cells in data_bytes using unpack_cells().
@@ -810,7 +897,8 @@ def format_cells(data_bytes, link_version_list=[3,4,5],
     You must pass the same link_version_list when packing the request and
     unpacking the response.
     '''
-    (link_version, cell_list) = unpack_cells(data_bytes, link_version_list)
+    (link_version, cell_list) = unpack_cells(data_bytes, link_version_list,
+                                         force_link_version=force_link_version)
     result  = "Link Version: {}\n".format(link_version)
     result += "{} Cell(s):\n".format(len(cell_list))
     for cell in cell_list:
@@ -836,4 +924,219 @@ def format_cells(data_bytes, link_version_list=[3,4,5],
                                                     zero_pad_len)
             else:
                 result += "{} : {}\n".format(key, cell[key])
+    return result
+
+def link_open(ip, port,
+              link_version_list=[3,4,5], force_link_version=None,
+              max_response_len=MAX_READ_BUFFER_LEN):
+    '''
+    Open a link-level Tor connection to ip and port, using the highest
+    link version in link_version_list supported by both sides.
+    max_response_len is the maximum response size that will be read from the
+    connection while setting up the link.
+    force_link_version overrides the negotiated link_version.
+    Returns a context dictionary required to continue the connection:
+        'link_version'             : the Tor cell link version used on the link
+        'open_sent_cell_bytes'     : the cell bytes sent to open the connection
+        'open_received_cell_bytes' : the cell bytes received when opening the
+                                     connection
+        'ssl_socket'               : a SSL-wrapped TCP socket connected to ip
+                                    and port
+        'tcp_socket'               : a TCP socket connected to ip and port
+    Unless you're using a *very* weird version of OpenSSL, this initiates
+    a Tor link version 3 or later connection.
+    See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n226
+    '''
+    context = ssl_open(ip, port)
+    versions_cell_bytes = pack_versions_cell(link_version_list)
+    ssl_write(context, versions_cell_bytes)
+    response_bytes = ssl_read(context, max_response_len)
+    (link_version, _) = unpack_cells(response_bytes,
+                                     link_version_list=link_version_list,
+                                     force_link_version=force_link_version)
+    if force_link_version:
+        link_version = force_link_version
+    context.update({
+            'link_version'             : link_version,
+            'open_sent_cell_bytes'     : versions_cell_bytes,
+            'open_received_cell_bytes' : response_bytes,
+            })
+    return context
+
+def link_write_cell_list(context,
+                         cell_list,
+                         force_link_version=None):
+    '''
+    Pack and send the Tor cells specified by cell_list to the ssl_socket in
+    context, using the link_version in context. force_link_version overrides
+    the link_version in context.
+    An empty cell list is allowed: no cells are sent.
+    Each dict in cell_list can have the following elements:
+        cell_command_string, circ_id (optional), payload (optional),
+        force_link_version (optional).
+    '''
+    cell_bytes = ''
+    link_version = context['link_version']
+    if force_link_version is not None:
+        link_version = force_link_version
+    for cell in cell_list:
+        cell_link_version = cell.get('force_link_version', link_version)
+        cell_bytes += pack_cell(cell['cell_command_string'],
+                                circ_id=cell.get('circ_id'),
+                                payload=cell.get('payload'),
+                                link_version=cell_link_version)
+    ssl_write(context, cell_bytes)
+
+def make_cell(cell_command_string, circ_id=None, payload=None,
+                 force_link_version=None):
+    '''
+    Return a dictionary containing the cell contents, as in link_write_cell().
+    '''
+    cell = {}
+    cell['cell_command_string'] = cell_command_string
+    if circ_id is not None:
+        cell['circ_id'] = circ_id
+    if payload is not None:
+        cell['payload'] = payload
+    if force_link_version is not None:
+        cell['force_link_version'] = force_link_version
+    return cell
+
+def link_write_cell(context,
+                    cell_command_string, circ_id=None, payload=None,
+                    force_link_version=None):
+    '''
+    Write a Tor cell with cell_command_string, circ_id, and payload.
+    See link_write_cell_list() for details.    
+    '''
+    cell = make_cell(cell_command_string, circ_id=circ_id, payload=payload,
+                     force_link_version=force_link_version)
+    link_write_cell_list(context,
+                         [cell],
+                         # This is redundant, but do it anyway
+                         force_link_version=force_link_version)
+    
+def link_read_cell_bytes(context,
+                         force_link_version=None,
+                         max_response_len=MAX_READ_BUFFER_LEN):
+    '''
+    Reads and returns at most max_response_len bytes from the ssl_socket in
+    context, using the link_version in context.
+    Returns the cell bytes received.
+    force_link_version overrides the link_version in context.
+    '''
+    received_bytes = ssl_read(context, max_response_len)
+    link_version = context['link_version']
+    if force_link_version is not None:
+        link_version = force_link_version
+    return received_bytes
+
+def link_close(context,
+               do_shutdown=True):
+    '''
+    Closes the Tor link in context.
+    If do_shutdown is True, shut down communication on the socket immediately,
+    rather than waiting for the system to potentially clear buffers.
+    '''
+    # There is no Tor cell command for closing a link
+    ssl_close(context, do_shutdown)
+
+def link_request_cell_list(ip, port,
+                           cell_list,
+                           link_version_list=[3,4,5], force_link_version=None,
+                           max_response_len=MAX_READ_BUFFER_LEN,
+                           do_shutdown=True):
+    '''
+    Send the Tor cells in cell_list to ip and port, using link_version_list,
+    (force_link_version overrides the negotiated link_version),
+    and read at most max_response_len bytes of response cells.
+    If do_shutdown is True, shut down the socket immediately after reading the
+    response.
+    Returns a tuple containing the context, and the response bytes.
+    Unless you're using a *very* weird version of OpenSSL, this makes
+    a Tor link version 3 or later connection.
+    See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n226
+    '''
+    context = link_open(ip, port,
+                        link_version_list=link_version_list,
+                        force_link_version=force_link_version,
+                        max_response_len=max_response_len)
+    link_write_cell_list(context,
+                         cell_list,
+                         force_link_version=force_link_version)
+    response_cell_bytes = ''
+    if len(cell_list) > 0:
+        response_cell_bytes = link_read_cell_bytes(context,
+                                        force_link_version=force_link_version,
+                                        max_response_len=max_response_len)
+    link_close(context, do_shutdown)
+    return (context, response_cell_bytes)
+
+def link_request_cell(ip, port,
+                      cell_command_string, circ_id=None, payload=None,
+                      link_version_list=[3,4,5], force_link_version=None,
+                      max_response_len=MAX_READ_BUFFER_LEN,
+                      do_shutdown=True):
+    '''
+    Send a Tor cell with cell_command_string, circ_id, and payload.
+    See link_request_cell_list() for details.
+    '''
+    cell = make_cell(cell_command_string, circ_id=circ_id, payload=payload,
+                     force_link_version=force_link_version)
+    return link_request_cell_list(ip, port,
+                                  [cell],
+                                  link_version_list=link_version_list,
+                                  force_link_version=force_link_version,
+                                  max_response_len=max_response_len,
+                                  do_shutdown=do_shutdown)
+
+def link_format_cell_bytes(context, cell_bytes,
+                           force_link_version=None,
+                           skip_cell_bytes=True, skip_zero_padding=True):
+    '''
+    Unpack and format the cells in cell_bytes using format_cells(), supplying
+    the relevant arguments from context.
+    Returns a string formatted according to the arguments.
+    '''
+    link_version = context.get('link_version')
+    if force_link_version is not None:
+        link_version = force_link_version
+    return format_cells(cell_bytes,
+                        link_version_list=[link_version],
+                        # we must use force_link_version, because we already
+                        # know the link version from the context
+                        force_link_version=link_version,
+                        skip_cell_bytes=skip_cell_bytes,
+                        skip_zero_padding=skip_zero_padding)
+
+def link_format_context(context,
+                        force_link_version=None,
+                        skip_cell_bytes=True, skip_zero_padding=True,
+                        skip_cells=False):
+    '''
+    Format context, using link_format_cell_bytes() to format the cells in
+    context.
+    Returns a string formatted according to the arguments.
+    '''
+    result = ''
+    link_version = context['link_version']
+    if force_link_version:
+        link_version = force_link_version
+    for key in sorted(context.keys()):
+        if key.endswith('cell_bytes'):
+            if skip_cells:
+                continue
+            # we know the link version, unless it's the initial versions
+            # cell on either side
+            cell_link_version = link_version
+            if key.startswith('open'):
+                cell_link_version = None
+            result += '{} cells:\n'.format(key)
+            result += format_cells(context[key],
+                                   link_version_list=[link_version],
+                                   force_link_version=cell_link_version,
+                                   skip_cell_bytes=skip_cell_bytes,
+                                   skip_zero_padding=skip_zero_padding)
+        else:
+            result += "{} : {}\n".format(key, context[key])
     return result
