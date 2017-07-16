@@ -45,6 +45,9 @@ Tor Links:
 * client-or-link.py (Negotiating the Link Version)
 * client-or-circuit-link.py (Send NETINFO and CREATE[D]_FAST cells)
 
+Tor Circuits:
+* client-or-circuit.py (Open multiple circuits on the same link)
+
 The other scripts are designed to clarify ambiguities in the tor specification.
 They are named after the corresponding tor trac ticket number.
 
