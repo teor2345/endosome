@@ -66,6 +66,7 @@ def tcp_request(ip, port, request_bytes,
 def ssl_open(ip, port):
     '''
     Open a SSL connection to ip and port.
+    Doesn't verify server certificates.
     Returns a context dictionary required to continue the connection:
         'ssl_socket'  : a SSL-wrapped TCP socket connected to ip and port
         'tcp_socket'  : a TCP socket connected to ip and port
@@ -74,6 +75,7 @@ def ssl_open(ip, port):
     See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n226
     '''
     context = tcp_open(ip, port)
+    # TODO: verify server certificates
     ssl_socket = ssl.wrap_socket(context['tcp_socket'])
     context.update({
             'ssl_socket' : ssl_socket
