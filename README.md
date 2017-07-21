@@ -58,6 +58,14 @@ Tor Circuits:
 The other scripts are designed to clarify ambiguities in the tor specification.
 They are named after the corresponding tor trac ticket number.
 
+### What are the different parts of the library?
+
+* endosome.py imports all the other files
+* connect.py opens, closes, and exchanges data on TCP and SSL connections
+* cell.py packs and unpacks cells
+* link.py opens, closes, and exchanges data on Tor links
+* circuit.py opens, closes, and exchanges data on Tor circuits
+
 ## Reference Material
 
 handshake.txt contains a hexdump of a typical handshake, and some working
@@ -76,6 +84,6 @@ revision f61e98f7a2 (also approximate).
 
 ## Why "endosome" ?
 
-Endosomes are involved in biological cell transport pathways.
+An endosome is a cell transport mechanism.
 
 https://en.wikipedia.org/wiki/Endosome
