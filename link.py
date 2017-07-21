@@ -122,7 +122,7 @@ def link_write_cell_list(context,
         force_link_version (optional).
     Returns the cell bytes sent on the wire.
     '''
-    cell_bytes = ''
+    cell_bytes = bytearray()
     link_version = get_link_version(context, force_link_version)
     for cell in cell_list:
         cell_link_version = cell.get('force_link_version', link_version)
@@ -214,7 +214,7 @@ def link_request_cell_list(ip, port,
     link_write_cell_list(context,
                          cell_list,
                          force_link_version=force_link_version)
-    response_cell_bytes = ''
+    response_cell_bytes = bytearray()
     if len(cell_list) > 0:
         response_cell_bytes = link_read_cell_bytes(context,
                                         force_link_version=force_link_version,

@@ -32,7 +32,7 @@ def tcp_read(context, max_response_len=MAX_READ_BUFFER_LEN):
     Reads and returns at most max_response_len bytes from the tcp_socket in
     context.
     '''
-    return context['tcp_socket'].recv(max_response_len)
+    return bytearray(context['tcp_socket'].recv(max_response_len))
 
 def tcp_close(context, do_shutdown=True):
     '''
@@ -87,7 +87,7 @@ def ssl_read(context, max_response_len=MAX_READ_BUFFER_LEN):
     Reads and returns at most max_response_len bytes from the ssl_socket in
     context.
     '''
-    return context['ssl_socket'].recv(max_response_len)
+    return bytearray(context['ssl_socket'].recv(max_response_len))
 
 def ssl_close(context, do_shutdown=True):
     '''

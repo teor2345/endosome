@@ -249,7 +249,7 @@ def pack_value(byte_len, value):
     assert struct.calcsize(fmt) == byte_len
     assert value >= 0
     assert value <= get_pack_max(byte_len)
-    return struct.pack(fmt, value)
+    return bytearray(struct.pack(fmt, value))
 
 def get_zero_pad(zero_pad_len):
     '''
@@ -465,7 +465,7 @@ def pack_versions_payload(link_version_list=[3,4,5]):
     packed_version_list = []
     for version in link_version_list:
         packed_version_list.append(pack_value(VERSION_LEN, version))
-    return ''.join(packed_version_list)
+    return bytearray().join(packed_version_list)
 
 def pack_versions_cell(link_version_list=[3,4,5], force_link_version=None):
     '''
@@ -629,10 +629,10 @@ def unpack_address(data_bytes):
     addr_bytes = temp_bytes[0:addr_len]
     if type == ADDRESS_TYPE_IPV4:
         assert addr_len == IPV4_ADDRESS_LEN
-        addr_value = ipaddress.IPv4Address(bytes(addr_bytes))
+        addr_value = ipaddress.IPv4Address(bytearray(addr_bytes))
     elif type == ADDRESS_TYPE_IPV6:
         assert addr_len == IPV6_ADDRESS_LEN
-        addr_value = ipaddress.IPv6Address(bytes(addr_bytes))
+        addr_value = ipaddress.IPv6Address(bytearray(addr_bytes))
     else:
         raise ValueError('Unexpected address type: {}'.format(type))
     addr_string = str(addr_value)
