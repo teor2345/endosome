@@ -173,6 +173,7 @@ def circuit_create(link_context,
     # Send the circuit request
     if create_cell_command_string == 'CREATE_FAST':
         # Relays drop create cells for circuit ids that are in use
+        # If we don't do this check, we will hang when reading
         assert not is_circ_id_used(link_context, circ_id)
         create_cell_bytes = link_write_cell(link_context,
                                       create_cell_command_string,
@@ -190,7 +191,7 @@ def circuit_create(link_context,
         # TODO: TAP & ntor handshakes, which need onion keys from descriptors
         raise ValueError("{} not yet implemented"
                          .format(create_cell_command_string))
-    # Make sure we sent a cell
+    # Make sure we sent a cell, if not, we will hang when reading
     assert local_circ_id is not None
 
     # Read and parse the response
@@ -210,6 +211,7 @@ def circuit_create(link_context,
         if cell_command_string.startswith('CREATED'):
             created_cell = cell
             remote_circ_id = created_cell['circ_id']
+            # if our circuit requests get out of order, nothing will work
             assert local_circ_id == remote_circ_id
             if cell_command_string == 'CREATED_FAST':
                 KH_bytes = created_cell['KH_bytes']
@@ -222,6 +224,7 @@ def circuit_create(link_context,
                 # descriptors
                 raise ValueError("{} not yet implemented"
                                  .format(cell_command_string))
+            # we found the CREATED cell, so stop looking
             break
 
     # Make sure we have the fields we need to continue using the circuit
