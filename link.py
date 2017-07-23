@@ -128,12 +128,12 @@ def link_write_cell_list(context,
         cell_link_version = cell.get('force_link_version', link_version)
         cell_bytes += pack_cell(cell['cell_command_string'],
                                 circ_id=cell.get('circ_id'),
-                                payload=cell.get('payload'),
+                                payload_bytes=cell.get('payload_bytes'),
                                 link_version=cell_link_version)
     ssl_write(context, cell_bytes)
     return cell_bytes
 
-def make_cell(cell_command_string, circ_id=None, payload=None,
+def make_cell(cell_command_string, circ_id=None, payload_bytes=None,
                  force_link_version=None):
     '''
     Return a dictionary containing the cell contents, as in link_write_cell().
@@ -143,20 +143,21 @@ def make_cell(cell_command_string, circ_id=None, payload=None,
     if circ_id is not None:
         cell['circ_id'] = circ_id
     if payload is not None:
-        cell['payload'] = payload
+        cell['payload_bytes'] = payload
     if force_link_version is not None:
         cell['force_link_version'] = force_link_version
     return cell
 
 def link_write_cell(context,
-                    cell_command_string, circ_id=None, payload=None,
+                    cell_command_string, circ_id=None, payload_bytes=None,
                     force_link_version=None):
     '''
     Write a Tor cell with cell_command_string, circ_id, and payload.
     Returns the cell bytes sent on the wire.
     See link_write_cell_list() for details.    
     '''
-    cell = make_cell(cell_command_string, circ_id=circ_id, payload=payload,
+    cell = make_cell(cell_command_string, circ_id=circ_id,
+                     payload_bytes=payload_bytes,
                      force_link_version=force_link_version)
     return link_write_cell_list(context,
                                 [cell],
@@ -223,7 +224,7 @@ def link_request_cell_list(ip, port,
     return (context, response_cell_bytes)
 
 def link_request_cell(ip, port,
-                      cell_command_string, circ_id=None, payload=None,
+                      cell_command_string, circ_id=None, payload_bytes=None,
                       link_version_list=[3,4,5], force_link_version=None,
                       send_netinfo=True, sender_timestamp=None,
                       sender_ip_list=None,
@@ -233,7 +234,8 @@ def link_request_cell(ip, port,
     Send a Tor cell with cell_command_string, circ_id, and payload.
     See link_request_cell_list() for details.
     '''
-    cell = make_cell(cell_command_string, circ_id=circ_id, payload=payload,
+    cell = make_cell(cell_command_string, circ_id=circ_id,
+                     payload_bytes=payload_bytes,
                      force_link_version=force_link_version)
     return link_request_cell_list(ip, port,
                                   [cell],

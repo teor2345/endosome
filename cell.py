@@ -503,7 +503,7 @@ def pack_versions_cell(link_version_list=[3,4,5], force_link_version=None):
     See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n503
     '''
     return pack_cell('VERSIONS',
-                     payload=pack_versions_payload(link_version_list),
+                     payload_bytes=pack_versions_payload(link_version_list),
                      link_version=force_link_version)
 
 def unpack_versions_payload(payload_len, payload_bytes):
@@ -563,7 +563,7 @@ def pack_padding_cell(link_version=None):
     Pack a fixed-length padding cell with random bytes, using link_version.
     '''
     return pack_cell('PADDING',
-                     payload=pack_padding_payload(),
+                     payload_bytes=pack_padding_payload(),
                      link_version=link_version)
 
 def pack_vpadding_payload(payload_len):
@@ -581,7 +581,7 @@ def pack_vpadding_cell(payload_len, link_version=None):
     using link_version.
     '''
     return pack_cell('VPADDING',
-                     payload=pack_vpadding_payload(payload_len),
+                     payload_bytes=pack_vpadding_payload(payload_len),
                      link_version=link_version)
 
 RESOLVE_TYPE_LEN = 1
@@ -729,14 +729,14 @@ def pack_netinfo_payload(receiver_ip_string, sender_timestamp=None,
         sender_timestamp = int(time.time())
     if sender_ip_list is None:
         sender_ip_list = []
-    payload  = pack_value(TIMESTAMP_LEN, sender_timestamp)
-    payload += pack_address(receiver_ip_string)
-    payload += pack_value(ADDRESS_COUNT_LEN, len(sender_ip_list))
+    payload_bytes  = pack_value(TIMESTAMP_LEN, sender_timestamp)
+    payload_bytes += pack_address(receiver_ip_string)
+    payload_bytes += pack_value(ADDRESS_COUNT_LEN, len(sender_ip_list))
     # The caller should ensure an IPv4 address is first
     # See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n1503
     for sender_ip_string in sender_ip_list:
-        payload += pack_address(sender_ip_string)
-    return payload
+        payload_bytes += pack_address(sender_ip_string)
+    return payload_bytes
 
 def pack_netinfo_cell(receiver_ip_string, sender_timestamp=None,
                       sender_ip_list=None, link_version=None):
@@ -746,10 +746,11 @@ def pack_netinfo_cell(receiver_ip_string, sender_timestamp=None,
     If sender_timestamp is None, uses the current time.
     If sender_ip_list is None, no local IP addresses are sent..
     '''
-    payload = pack_netinfo_payload(receiver_ip_string,
+    payload_bytes = pack_netinfo_payload(receiver_ip_string,
                                    sender_timestamp=sender_timestamp,
                                    sender_ip_list=sender_ip_list)
-    return pack_cell('NETINFO', payload=payload, link_version=link_version)
+    return pack_cell('NETINFO', payload_bytes=payload_bytes,
+                     link_version=link_version)
 
 def unpack_netinfo_payload(payload_len, payload_bytes):
     '''
@@ -799,7 +800,7 @@ def pack_create_fast_cell(circ_id, link_version=None):
     in the CERTS cell.
     '''
     return pack_cell('CREATE_FAST', circ_id=circ_id,
-                     payload=pack_create_fast_payload(),
+                     payload_bytes=pack_create_fast_payload(),
                      link_version=link_version)
 
 def unpack_create_fast_payload(payload_len, payload_bytes):
@@ -872,18 +873,17 @@ def unpack_cell(data_bytes, link_version=None):
     Calls unpack_cell_header(), then adds cell-command-specific fields,
     if available.
     Asserts if the cell structure is missing mandatory fields.
-    You must pass the same link_version_list when packing the request and
-    unpacking the response.
+    You must pass the same link_version when packing the request and unpacking
+    the response.
     '''
-    (cell_structure, remaining_bytes) = unpack_cell_header(data_bytes,
-                                                           link_version)
-    cell_command_value = cell_structure['cell_command_value']
+    (cell, remaining_bytes) = unpack_cell_header(data_bytes, link_version)
+    cell_command_value = cell['cell_command_value']
     unpack_function = get_payload_unpack_function(cell_command_value)
-    payload_len = cell_structure['payload_len']
-    payload_bytes = cell_structure['payload_bytes']
-    payload_structure = unpack_function(payload_len, payload_bytes)
-    cell_structure.update(payload_structure)
-    return (cell_structure, remaining_bytes)
+    payload_len = cell['payload_len']
+    payload_bytes = cell['payload_bytes']
+    payload_dict = unpack_function(payload_len, payload_bytes)
+    cell.update(payload_dict)
+    return (cell, remaining_bytes)
 
 def unpack_cells(data_bytes, link_version_list=[3,4,5],
                  force_link_version=None):

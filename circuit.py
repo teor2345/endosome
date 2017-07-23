@@ -175,10 +175,10 @@ def circuit_create(link_context,
         # Relays drop create cells for circuit ids that are in use
         assert not is_circ_id_used(link_context, circ_id)
         create_cell_bytes = link_write_cell(link_context,
-                                       create_cell_command_string,
-                                       circ_id=circ_id,
-                                       payload=pack_create_fast_payload(),
-                                       force_link_version=force_link_version)
+                                      create_cell_command_string,
+                                      circ_id=circ_id,
+                                      payload_bytes=pack_create_fast_payload(),
+                                      force_link_version=force_link_version)
         (_, create_cell_list) = unpack_cells_link(link_context,
                                        create_cell_bytes,
                                        force_link_version=force_link_version)

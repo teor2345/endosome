@@ -16,14 +16,14 @@ ORPORT = 12345
 
 cell_list = []
 netinfo_payload = pack_netinfo_payload('127.0.0.1')
-netinfo_cell = make_cell('NETINFO', payload=netinfo_payload)
+netinfo_cell = make_cell('NETINFO', payload_bytes=netinfo_payload)
 cell_list.append(netinfo_cell)
 create_fast_payload=pack_create_fast_payload()
 create_fast_cell = make_cell('CREATE_FAST',
                              # Automatically choose a valid circuit ID for the
                              # link version
                              circ_id=None,
-                             payload=create_fast_payload)
+                             payload_bytes=create_fast_payload)
 cell_list.append(create_fast_cell)
 
 # Try the default set of link versions: we will get 4 or 5, depending on
