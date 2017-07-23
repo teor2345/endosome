@@ -154,7 +154,7 @@ def link_write_cell(context,
     '''
     Write a Tor cell with cell_command_string, circ_id, and payload.
     Returns the cell bytes sent on the wire.
-    See link_write_cell_list() for details.    
+    See link_write_cell_list() for details.
     '''
     cell = make_cell(cell_command_string, circ_id=circ_id,
                      payload_bytes=payload_bytes,
@@ -163,7 +163,7 @@ def link_write_cell(context,
                                 [cell],
                                 # This is redundant, but we do it anyway
                                 force_link_version=force_link_version)
-    
+
 def link_read_cell_bytes(context,
                          force_link_version=None,
                          max_response_len=MAX_READ_BUFFER_LEN):

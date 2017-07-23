@@ -60,7 +60,7 @@ print 'Response Cells:\n{}'.format(format_cells(response, version_list))
 # But it works if you send a lot of them
 
 version_list = [4]
-REQUEST  = pack_versions_cell(version_list) 
+REQUEST  = pack_versions_cell(version_list)
 REQUEST += pack_vpadding_cell(100, version_list[0]) * 1000
 REQUEST += pack_padding_cell(version_list[0])
 

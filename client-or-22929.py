@@ -41,7 +41,7 @@ print 'Response Cells:\n{}'.format(format_cells(response, version_list))
 
 version_list = [4]
 # You can send as many of these as you like. No, really, as many as you like.
-# 
+#
 REQUEST  = pack_vpadding_cell(0) * 5000
 REQUEST += pack_versions_cell(version_list)
 
