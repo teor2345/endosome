@@ -590,11 +590,11 @@ RESOLVE_TTL_LEN = 4
 RESOLVE_ERROR_VALUE_LEN = 0
 
 # See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n1480
-ADDRESS_TYPE_HOST       = 0x00
-ADDRESS_TYPE_IPV4       = 0x04
-ADDRESS_TYPE_IPV6       = 0x06
-ADDRESS_ERROR_TRANSIENT = 0xF0
-ADDRESS_ERROR_PERMANENT = 0xF1
+HOST_ADDRESS_TYPE            = 0x00
+IPV4_ADDRESS_TYPE            = 0x04
+IPV6_ADDRESS_TYPE            = 0x06
+TRANSIENT_ERROR_ADDRESS_TYPE = 0xF0
+PERMANENT_ERROR_ADDRESS_TYPE = 0xF1
 
 IPV4_ADDRESS_LEN =  4
 IPV6_ADDRESS_LEN = 16
@@ -623,7 +623,7 @@ def pack_address(address):
     try:
         addr_value = ipaddress.ip_address(unicode(address))
         addr_type = addr_value.version
-        if addr_type == ADDRESS_TYPE_IPV4:
+        if addr_type == IPV4_ADDRESS_TYPE:
             addr_len = IPV4_ADDRESS_LEN
             addr_bytes = ipaddress.v4_int_to_packed(int(addr_value))
         else:
@@ -632,7 +632,7 @@ def pack_address(address):
     except ValueError:
         # must be a hostname
         addr_bytes = address
-        addr_type = ADDRESS_TYPE_HOST
+        addr_type = HOST_ADDRESS_TYPE
         addr_len = len(address)
 
     result  = pack_value(RESOLVE_TYPE_LEN, addr_type)
@@ -640,6 +640,39 @@ def pack_address(address):
     assert len(addr_bytes) == addr_len
     result += addr_bytes
     return result
+
+def get_addr_type_len(addr_type):
+    '''
+    Return the packed byte length of addr_type, which must be either
+    IPV4_ADDRESS_TYPE or IPV4_ADDRESS_TYPE.
+    '''
+    if addr_type == IPV4_ADDRESS_TYPE:
+        return IPV4_ADDRESS_LEN
+    elif addr_type == IPV6_ADDRESS_TYPE:
+        return IPV6_ADDRESS_LEN
+    else:
+        raise ValueError('Unexpected address type: {}'.format(addr_type))
+
+def unpack_ip_address_bytes(data_bytes, addr_type):
+    '''
+    Return a tuple containing the unpacked addr_type IP address string, and the
+    remainder of data_bytes.
+    addr_type must be either IPV4_ADDRESS_TYPE or IPV6_ADDRESS_TYPE.
+    data_bytes must be at least IPV4_ADDRESS_LEN or IPV6_ADDRESS_LEN long.
+    '''
+    addr_len = get_addr_type_len(addr_type)
+    assert len(data_bytes) >= addr_len
+    if addr_type == IPV4_ADDRESS_TYPE:
+        assert addr_len == IPV4_ADDRESS_LEN
+        (addr_bytes, remaining_bytes) = split_field(addr_len, data_bytes)
+        addr_value = ipaddress.IPv4Address(bytearray(addr_bytes))
+    elif addr_type == IPV6_ADDRESS_TYPE:
+        assert addr_len == IPV6_ADDRESS_LEN
+        (addr_bytes, remaining_bytes) = split_field(addr_len, data_bytes)
+        addr_value = ipaddress.IPv6Address(bytearray(addr_bytes))
+    else:
+        raise ValueError('Unexpected address type: {}'.format(addr_type))
+    return (str(addr_value), remaining_bytes)
 
 def unpack_address(data_bytes):
     '''
@@ -649,19 +682,11 @@ def unpack_address(data_bytes):
     '''
     assert len(data_bytes) >= MIN_ADDRESS_LEN
     temp_bytes = data_bytes
-    (type, temp_bytes) = unpack_value(RESOLVE_TYPE_LEN, temp_bytes)
+    (addr_type, temp_bytes) = unpack_value(RESOLVE_TYPE_LEN, temp_bytes)
     (addr_len, temp_bytes) = unpack_value(RESOLVE_VALUE_LENGTH_LEN, temp_bytes)
-    addr_bytes = temp_bytes[0:addr_len]
-    if type == ADDRESS_TYPE_IPV4:
-        assert addr_len == IPV4_ADDRESS_LEN
-        addr_value = ipaddress.IPv4Address(bytearray(addr_bytes))
-    elif type == ADDRESS_TYPE_IPV6:
-        assert addr_len == IPV6_ADDRESS_LEN
-        addr_value = ipaddress.IPv6Address(bytearray(addr_bytes))
-    else:
-        raise ValueError('Unexpected address type: {}'.format(type))
-    addr_string = str(addr_value)
-    return (addr_string, temp_bytes[addr_len:])
+    assert len(data_bytes) >= addr_len
+    assert addr_len == get_addr_type_len(addr_type)
+    return unpack_ip_address_bytes(temp_bytes, addr_type)
 
 def pack_resolve(address=None, error_type=None, ttl=None):
     '''
