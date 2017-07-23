@@ -400,11 +400,10 @@ def unpack_cell_header(data_bytes, link_version=None):
     # check the received data is long enough
     # if you parse a cell using the wrong link version, you will probably
     # trigger an assertion here
-    assert len(data_bytes) >= cell_len
-    assert len(temp_bytes) >= payload_len
-    cell_bytes = data_bytes[0:cell_len]
-    payload_bytes = temp_bytes[0:payload_len]
-    temp_bytes = temp_bytes[payload_len:]
+    (cell_bytes, remaining_bytes) = split_field(cell_len, data_bytes)
+    (payload_bytes, payload_remaining_bytes) = split_field(payload_len,
+                                                           temp_bytes)
+    assert remaining_bytes == payload_remaining_bytes
     is_payload_zero_bytes_flag = (payload_bytes == get_zero_pad(payload_len))
     cell_structure = {
         'link_version'        : link_version,
@@ -771,9 +770,9 @@ def unpack_create_fast_payload(payload_len, payload_bytes):
     See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n962
     '''
     assert len(payload_bytes) == payload_len
-    assert payload_len >= HASH_LEN
+    (X_bytes, _) = split_field(HASH_LEN, payload_bytes)
     return {
-        'X_bytes' : payload_bytes[0:HASH_LEN],
+        'X_bytes' : X_bytes,
         }
 
 # TODO: pack_created_fast_cell
@@ -791,9 +790,12 @@ def unpack_created_fast_payload(payload_len, payload_bytes):
     '''
     assert len(payload_bytes) == payload_len
     assert payload_len >= HASH_LEN*2
+    remaining_bytes = payload_bytes
+    (Y_bytes,  remaining_bytes) = split_field(HASH_LEN, remaining_bytes)
+    (KH_bytes, remaining_bytes) = split_field(HASH_LEN, remaining_bytes)
     return {
-        'Y_bytes'  : payload_bytes[0:HASH_LEN],
-        'KH_bytes' : payload_bytes[HASH_LEN:HASH_LEN*2],
+        'Y_bytes'  : Y_bytes,
+        'KH_bytes' : KH_bytes,
         }
 
 # This table should be kept in sync with CELL_COMMAND
