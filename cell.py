@@ -294,33 +294,24 @@ def get_random_bytes(random_len):
     assert len(result) == random_len
     return result
 
-def pack_cell(cell_command_string, link_version=None, circ_id=None,
-              payload=None):
+def pack_cell_header(cell_command_string, link_version=None, circ_id=None,
+                     payload_len=None):
     '''
-    Pack a cell for link_version, on circuit circ_id,
-    with command cell_command_string and payload.
+    Pack a cell header for link_version, on circuit circ_id,
+    with command cell_command_string and payload_len.
     link_version can be None for VERSIONS cells.
     circ_id can be None, if it is, a valid circ_id is chosen:
         * 0 for link-level cells, or
         * get_min_valid_circ_id(link_version) for circuit-level cells.
       If you want to build more than one circuit on a connection, you'll have
       to supply unique circuit IDs yourself.
-    payload can be None when allowed by the cell command.
+    payload_len can be None or 0 when allowed by the cell command.
     See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n387
     '''
     cell_command_value = get_cell_command_value(cell_command_string)
     # Work out how long everything is
     circ_id_len = get_cell_circ_id_len(link_version)
-    payload_len = 0 if payload is None else len(payload)
     is_var_cell_flag = is_cell_command_variable_length(cell_command_value)
-    if is_var_cell_flag:
-        cell_len = (circ_id_len + CELL_COMMAND_LEN + PAYLOAD_LENGTH_LEN +
-                    payload_len)
-    else:
-        data_len = circ_id_len + CELL_COMMAND_LEN + payload_len
-        cell_len = get_cell_fixed_length(link_version)
-        zero_pad_len = cell_len - data_len
-        assert payload_len <= MAX_FIXED_PAYLOAD_LEN
 
     # Now pack it all in
     if circ_id is None:
@@ -328,31 +319,22 @@ def pack_cell(cell_command_string, link_version=None, circ_id=None,
             circ_id = get_min_valid_circ_id(link_version)
         else:
             circ_id = 0
-    cell = pack_value(circ_id_len, circ_id)
+    cell_header = pack_value(circ_id_len, circ_id)
 
     # byte order is irrelevant in this case
-    cell += pack_value(CELL_COMMAND_LEN, cell_command_value)
+    cell_header += pack_value(CELL_COMMAND_LEN, cell_command_value)
 
     if is_var_cell_flag:
-        cell += pack_value(PAYLOAD_LENGTH_LEN, payload_len)
+        cell_header += pack_value(PAYLOAD_LENGTH_LEN, payload_len)
 
-    if payload is not None:
-        cell += payload
-
-    # pad fixed-length cells to their length
-    if not is_var_cell_flag:
-        assert len(cell) == data_len
-        cell += get_zero_pad(zero_pad_len)
-
-    assert len(cell) == cell_len
-    return cell
+    return cell_header
 
 def unpack_cell_header(data_bytes, link_version=None):
     '''
     Unpack a cell header out of data_bytes for link_version.
     link_version can be None before versions cells have been exchanged.
     Returns a tuple containing a dict with the destructured cell contents,
-    and the remainder of byte string.
+    and the remainder of byte string (the cell payload).
     The returned dict contains the following string keys:
         'link_version'        : an integer link version
         'link_version_string' : a descriptive string for the link version
@@ -405,7 +387,7 @@ def unpack_cell_header(data_bytes, link_version=None):
                                                            temp_bytes)
     assert remaining_bytes == payload_remaining_bytes
     is_payload_zero_bytes_flag = (payload_bytes == get_zero_pad(payload_len))
-    cell_structure = {
+    cell = {
         'link_version'        : link_version,
         'link_version_string' : get_link_version_string(link_version),
         'is_var_cell_flag'    : is_var_cell_flag,
@@ -419,9 +401,44 @@ def unpack_cell_header(data_bytes, link_version=None):
         'payload_bytes'       : payload_bytes,
         'is_payload_zero_bytes_flag' : is_payload_zero_bytes_flag,
         }
-    return (cell_structure, temp_bytes)
+    return (cell, remaining_bytes)
 
-# Unpack placeholders
+def pack_cell(cell_command_string, link_version=None, circ_id=None,
+              payload_bytes=None):
+    '''
+    Pack a cell with a cell header and payload_bytes.
+    payload_bytes can be None when allowed by the cell command.
+    See pack_cell_header() for other arfument details.
+    See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n387
+    '''
+    # Find the values
+    cell_command_value = get_cell_command_value(cell_command_string)
+    circ_id_len = get_cell_circ_id_len(link_version)
+    payload_len = 0 if payload_bytes is None else len(payload_bytes)
+    is_var_cell_flag = is_cell_command_variable_length(cell_command_value)
+    if is_var_cell_flag:
+        cell_len = (circ_id_len + CELL_COMMAND_LEN + PAYLOAD_LENGTH_LEN +
+                    payload_len)
+    else:
+        data_len = circ_id_len + CELL_COMMAND_LEN + payload_len
+        cell_len = get_cell_fixed_length(link_version)
+        zero_pad_len = cell_len - data_len
+        assert payload_len <= MAX_FIXED_PAYLOAD_LEN
+
+    # Pack the bytes
+    cell = pack_cell_header(cell_command_string, link_version=link_version,
+                            circ_id=circ_id, payload_len=payload_len)
+
+    if payload_bytes is not None:
+        cell += payload_bytes
+
+    # pad fixed-length cells to their length
+    if not is_var_cell_flag:
+        assert len(cell) == data_len
+        cell += get_zero_pad(zero_pad_len)
+
+    assert len(cell) == cell_len
+    return cell
 
 def unpack_unused_payload(payload_len, payload_bytes):
     '''
