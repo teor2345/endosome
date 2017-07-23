@@ -5,6 +5,7 @@
 
 # Top-level module file
 
+from pack import *
 from connect import *
 from cell import *
 from link import *
