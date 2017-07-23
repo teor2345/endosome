@@ -216,6 +216,15 @@ def get_max_valid_circ_id(link_version):
     '''
     return get_pack_max(get_cell_circ_id_len(link_version))
 
+def split_field(byte_len, data_bytes):
+    '''
+    Return a tuple containing the first byte_len bytes in data_bytes, and the
+    remainder of data_bytes.
+    Asserts if data_bytes is not at least byte_len bytes long.
+    '''
+    assert len(data_bytes) >= byte_len
+    return (data_bytes[0:byte_len], data_bytes[byte_len:])
+
 # struct formats. See
 # https://docs.python.org/2/library/struct.html#byte-order-size-and-alignment
 PACK_FMT = {
@@ -250,6 +259,22 @@ def pack_value(byte_len, value):
     assert value >= 0
     assert value <= get_pack_max(byte_len)
     return bytearray(struct.pack(fmt, value))
+
+def unpack_value(byte_len, data_bytes):
+    '''
+    Return a tuple containing the unpacked network-order unsigned
+    byte_len-byte field in data_bytes, and the remainder of data_bytes.
+    Asserts if data_bytes is not at least byte_len bytes long.
+    '''
+    (value_bytes, remaining_bytes) = split_field(byte_len, data_bytes)
+    fmt = get_pack_fmt(byte_len)
+    assert struct.calcsize(fmt) == byte_len
+    value_tuple = struct.unpack(fmt, value_bytes)
+    assert len(value_tuple) == 1
+    value, = value_tuple
+    assert value >= 0
+    assert value <= get_pack_max(byte_len)
+    return (value, remaining_bytes)
 
 def get_zero_pad(zero_pad_len):
     '''
@@ -321,22 +346,6 @@ def pack_cell(cell_command_string, link_version=None, circ_id=None,
 
     assert len(cell) == cell_len
     return cell
-
-def unpack_value(byte_len, data_bytes):
-    '''
-    Return a tuple containing the unpacked network-order unsigned
-    byte_len-byte field in data_bytes, and the remainder of data_bytes.
-    Asserts if data_bytes is not at least byte_len bytes long.
-    '''
-    fmt = get_pack_fmt(byte_len)
-    assert struct.calcsize(fmt) == byte_len
-    assert len(data_bytes) >= byte_len
-    value_tuple = struct.unpack(fmt, data_bytes[0:byte_len])
-    assert len(value_tuple) == 1
-    value, = value_tuple
-    assert value >= 0
-    assert value <= get_pack_max(byte_len)
-    return (value, data_bytes[byte_len:])
 
 def unpack_cell_header(data_bytes, link_version=None):
     '''
