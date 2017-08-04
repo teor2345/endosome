@@ -326,10 +326,12 @@ def unpack_cell_header(data_bytes, link_version=None):
     return (cell, remaining_bytes)
 
 def pack_cell(cell_command_string, link_version=None, circ_id=None,
-              payload_bytes=None):
+              payload_bytes=None, force_payload_len=None):
     '''
     Pack a cell with a cell header and payload_bytes.
     payload_bytes can be None when allowed by the cell command.
+    If force_payload_len is not None, it is used instead of len(payload_bytes)
+    in the cell header.
     See pack_cell_header() for other arfument details.
     See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n387
     '''
@@ -348,8 +350,10 @@ def pack_cell(cell_command_string, link_version=None, circ_id=None,
         assert payload_len <= MAX_FIXED_PAYLOAD_LEN
 
     # Pack the bytes
+    if force_payload_len is None:
+        force_payload_len = payload_len
     cell = pack_cell_header(cell_command_string, link_version=link_version,
-                            circ_id=circ_id, payload_len=payload_len)
+                            circ_id=circ_id, payload_len=force_payload_len)
 
     if payload_bytes is not None:
         cell += payload_bytes
@@ -414,7 +418,8 @@ def pack_versions_payload(link_version_list=[3,4,5]):
         packed_version_list.append(pack_value(VERSION_LEN, version))
     return bytearray().join(packed_version_list)
 
-def pack_versions_cell(link_version_list=[3,4,5], force_link_version=None):
+def pack_versions_cell(link_version_list=[3,4,5],
+                       force_link_version=None, force_payload_len=None):
     '''
     Pack a versions cell with link_version_list.
     If force_link_version is not None, use that circ_id_len.
@@ -426,7 +431,8 @@ def pack_versions_cell(link_version_list=[3,4,5], force_link_version=None):
     '''
     return pack_cell('VERSIONS',
                      payload_bytes=pack_versions_payload(link_version_list),
-                     link_version=force_link_version)
+                     link_version=force_link_version,
+                     force_payload_len=force_payload_len)
 
 def unpack_versions_payload(payload_len, payload_bytes):
     '''
@@ -480,13 +486,14 @@ def pack_padding_payload():
     '''
     return get_random_bytes(MAX_FIXED_PAYLOAD_LEN)
 
-def pack_padding_cell(link_version=None):
+def pack_padding_cell(link_version=None, force_payload_len=None):
     '''
     Pack a fixed-length padding cell with random bytes, using link_version.
     '''
     return pack_cell('PADDING',
                      payload_bytes=pack_padding_payload(),
-                     link_version=link_version)
+                     link_version=link_version,
+                     force_payload_len=force_payload_len)
 
 def pack_vpadding_payload(payload_len):
     '''
@@ -497,14 +504,15 @@ def pack_vpadding_payload(payload_len):
     '''
     return get_random_bytes(payload_len)
 
-def pack_vpadding_cell(payload_len, link_version=None):
+def pack_vpadding_cell(payload_len, link_version=None, force_payload_len=None):
     '''
     Pack a variable-length padding cell with payload_len random bytes,
     using link_version.
     '''
     return pack_cell('VPADDING',
                      payload_bytes=pack_vpadding_payload(payload_len),
-                     link_version=link_version)
+                     link_version=link_version,
+                     force_payload_len=force_payload_len)
 
 RESOLVE_TYPE_LEN = 1
 RESOLVE_VALUE_LENGTH_LEN = 1
@@ -661,7 +669,8 @@ def pack_netinfo_payload(receiver_ip_string, sender_timestamp=None,
     return payload_bytes
 
 def pack_netinfo_cell(receiver_ip_string, sender_timestamp=None,
-                      sender_ip_list=None, link_version=None):
+                      sender_ip_list=None, link_version=None,
+                      force_payload_len=None):
     '''
     Pack a fixed-length netinfo cell with sender_timestamp, receiver_ip_string,
     and sender_ip_list, using link_version.
@@ -672,7 +681,8 @@ def pack_netinfo_cell(receiver_ip_string, sender_timestamp=None,
                                    sender_timestamp=sender_timestamp,
                                    sender_ip_list=sender_ip_list)
     return pack_cell('NETINFO', payload_bytes=payload_bytes,
-                     link_version=link_version)
+                     link_version=link_version,
+                     force_payload_len=force_payload_len)
 
 def unpack_netinfo_payload(payload_len, payload_bytes):
     '''
@@ -714,7 +724,7 @@ def pack_create_fast_payload():
     '''
     return get_random_bytes(HASH_LEN)
 
-def pack_create_fast_cell(circ_id, link_version=None):
+def pack_create_fast_cell(circ_id, link_version=None, force_payload_len=None):
     '''
     Pack HASH_LEN random bytes into a fixed-length CREATE_FAST cell,
     opening circ_id using link_version.
@@ -723,7 +733,8 @@ def pack_create_fast_cell(circ_id, link_version=None):
     '''
     return pack_cell('CREATE_FAST', circ_id=circ_id,
                      payload_bytes=pack_create_fast_payload(),
-                     link_version=link_version)
+                     link_version=link_version,
+                     force_payload_len=force_payload_len)
 
 def unpack_create_fast_payload(payload_len, payload_bytes):
     '''

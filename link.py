@@ -118,8 +118,11 @@ def link_write_cell_list(context,
     the link_version in context.
     An empty cell list is allowed: no cells are sent.
     Each dict in cell_list can have the following elements:
-        cell_command_string, circ_id (optional), payload (optional),
-        force_link_version (optional).
+        cell_command_string : the cell command for the cell
+        circ_id             : the circuit id for the cell (optional)
+        payload_bytes       : the bytes in the cell payload (optional)
+        force_link_version  : overrides the context link version (optional)
+        force_payload_len   : overrides len(payload_bytes) (optional)
     Returns the cell bytes sent on the wire.
     '''
     cell_bytes = bytearray()
@@ -127,14 +130,15 @@ def link_write_cell_list(context,
     for cell in cell_list:
         cell_link_version = cell.get('force_link_version', link_version)
         cell_bytes += pack_cell(cell['cell_command_string'],
-                                circ_id=cell.get('circ_id'),
-                                payload_bytes=cell.get('payload_bytes'),
-                                link_version=cell_link_version)
+                   circ_id=cell.get('circ_id'),
+                   payload_bytes=cell.get('payload_bytes'),
+                   link_version=cell_link_version,
+                   force_payload_len=cell.get('force_payload_len'))
     ssl_write(context, cell_bytes)
     return cell_bytes
 
 def make_cell(cell_command_string, circ_id=None, payload_bytes=None,
-                 force_link_version=None):
+              force_link_version=None, force_payload_len=None):
     '''
     Return a dictionary containing the cell contents, as in link_write_cell().
     '''
@@ -142,15 +146,17 @@ def make_cell(cell_command_string, circ_id=None, payload_bytes=None,
     cell['cell_command_string'] = cell_command_string
     if circ_id is not None:
         cell['circ_id'] = circ_id
-    if payload is not None:
-        cell['payload_bytes'] = payload
+    if payload_bytes is not None:
+        cell['payload_bytes'] = payload_bytes
     if force_link_version is not None:
         cell['force_link_version'] = force_link_version
+    if force_payload_len is not None:
+        cell['force_payload_len'] = force_payload_len
     return cell
 
 def link_write_cell(context,
                     cell_command_string, circ_id=None, payload_bytes=None,
-                    force_link_version=None):
+                    force_link_version=None, force_payload_len=None):
     '''
     Write a Tor cell with cell_command_string, circ_id, and payload.
     Returns the cell bytes sent on the wire.
@@ -158,11 +164,10 @@ def link_write_cell(context,
     '''
     cell = make_cell(cell_command_string, circ_id=circ_id,
                      payload_bytes=payload_bytes,
-                     force_link_version=force_link_version)
-    return link_write_cell_list(context,
-                                [cell],
-                                # This is redundant, but we do it anyway
-                                force_link_version=force_link_version)
+                     force_link_version=force_link_version,
+                     force_payload_len=force_payload_len)
+    # force_* are redundant here
+    return link_write_cell_list(context, [cell])
 
 def link_read_cell_bytes(context,
                          force_link_version=None,
