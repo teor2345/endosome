@@ -109,6 +109,29 @@ def link_open(ip, port,
             })
     return context
 
+def link_pack_cell(context,
+                   cell,
+                   force_link_version=None):
+    '''
+    Pack the Tor cell specified by cell using the link_version in context.
+    force_link_version overrides the link_version in context.
+    The dict cell can have the following elements:
+        cell_command_string : the cell command for the cell
+        circ_id             : the circuit id for the cell (optional)
+        payload_bytes       : the bytes in the cell payload (optional)
+        force_link_version  : overrides the context link version (optional)
+        force_payload_len   : overrides len(payload_bytes) (optional)
+    Returns the cell bytes.
+    '''
+    cell_bytes = bytearray()
+    link_version = get_link_version(context, force_link_version)
+    cell_link_version = cell.get('force_link_version', link_version)
+    return pack_cell(cell['cell_command_string'],
+                     circ_id=cell.get('circ_id'),
+                     payload_bytes=cell.get('payload_bytes'),
+                     link_version=cell_link_version,
+                     force_payload_len=cell.get('force_payload_len'))
+
 def link_write_cell_list(context,
                          cell_list,
                          force_link_version=None):
@@ -117,28 +140,18 @@ def link_write_cell_list(context,
     context, using the link_version in context. force_link_version overrides
     the link_version in context.
     An empty cell list is allowed: no cells are sent.
-    Each dict in cell_list can have the following elements:
-        cell_command_string : the cell command for the cell
-        circ_id             : the circuit id for the cell (optional)
-        payload_bytes       : the bytes in the cell payload (optional)
-        force_link_version  : overrides the context link version (optional)
-        force_payload_len   : overrides len(payload_bytes) (optional)
+    Each dict in cell_list is as in link_pack_cell().
     Returns the cell bytes sent on the wire.
     '''
     cell_bytes = bytearray()
     link_version = get_link_version(context, force_link_version)
     for cell in cell_list:
-        cell_link_version = cell.get('force_link_version', link_version)
-        cell_bytes += pack_cell(cell['cell_command_string'],
-                   circ_id=cell.get('circ_id'),
-                   payload_bytes=cell.get('payload_bytes'),
-                   link_version=cell_link_version,
-                   force_payload_len=cell.get('force_payload_len'))
+        cell_bytes += link_pack_cell(context, cell)
     ssl_write(context, cell_bytes)
     return cell_bytes
 
-def make_cell(cell_command_string, circ_id=None, payload_bytes=None,
-              force_link_version=None, force_payload_len=None):
+def link_make_cell(cell_command_string, circ_id=None, payload_bytes=None,
+                   force_link_version=None, force_payload_len=None):
     '''
     Return a dictionary containing the cell contents, as in link_write_cell().
     '''
@@ -162,10 +175,10 @@ def link_write_cell(context,
     Returns the cell bytes sent on the wire.
     See link_write_cell_list() for details.
     '''
-    cell = make_cell(cell_command_string, circ_id=circ_id,
-                     payload_bytes=payload_bytes,
-                     force_link_version=force_link_version,
-                     force_payload_len=force_payload_len)
+    cell = link_make_cell(cell_command_string, circ_id=circ_id,
+                          payload_bytes=payload_bytes,
+                          force_link_version=force_link_version,
+                          force_payload_len=force_payload_len)
     # force_* are redundant here
     return link_write_cell_list(context, [cell])
 
@@ -239,9 +252,9 @@ def link_request_cell(ip, port,
     Send a Tor cell with cell_command_string, circ_id, and payload.
     See link_request_cell_list() for details.
     '''
-    cell = make_cell(cell_command_string, circ_id=circ_id,
-                     payload_bytes=payload_bytes,
-                     force_link_version=force_link_version)
+    cell = link_make_cell(cell_command_string, circ_id=circ_id,
+                          payload_bytes=payload_bytes,
+                          force_link_version=force_link_version)
     return link_request_cell_list(ip, port,
                                   [cell],
                                   link_version_list=link_version_list,
