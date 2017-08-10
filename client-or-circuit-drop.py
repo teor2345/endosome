@@ -31,10 +31,16 @@ circuit_context = circuit_create(link_context)
                                              [drop_cell])
 print '\nLink context:\n{}'.format(link_format_context(link_context))
 print '\nCircuit context:\n{}'.format(circuit_format_context(circuit_context))
+# We don't want to decrypt or re-digest outbound cells, so we pass None for
+# is_cell_outbound_flag
 print '\nDrop Cell (crypt):\n{}'.format(format_cell_bytes(circuit_context,
-                                                          crypt_cell_bytes))
+                                                  crypt_cell_bytes,
+                                                  is_cell_outbound_flag=None,
+                                                  validate=False))
 print '\nDrop Cell (plain):\n{}'.format(format_cell_bytes(circuit_context,
-                                                          plain_cell_bytes))
+                                                  plain_cell_bytes,
+                                                  is_cell_outbound_flag=None,
+                                                  validate=True))
 #print '\nDrop Cell (dict):\n{}'.format(sent_cell_list)
 
 # Try link version 3
@@ -49,9 +55,13 @@ circuit_context = circuit_create(link_context)
 print '\nLink context:\n{}'.format(link_format_context(link_context))
 print '\nCircuit context:\n{}'.format(circuit_format_context(circuit_context))
 print '\nDrop Cell (crypt):\n{}'.format(format_cell_bytes(circuit_context,
-                                                          crypt_cell_bytes))
+                                                  crypt_cell_bytes,
+                                                  is_cell_outbound_flag=None,
+                                                  validate=False))
 print '\nDrop Cell (plain):\n{}'.format(format_cell_bytes(circuit_context,
-                                                          plain_cell_bytes))
+                                                  plain_cell_bytes,
+                                                  is_cell_outbound_flag=None,
+                                                  validate=True))
 #print '\nDrop Cell (dict):\n{}'.format(sent_cell_list)
 
 # Try multiple circuits:

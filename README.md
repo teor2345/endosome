@@ -54,7 +54,8 @@ Tor Links:
 
 Tor Circuits:
 * client-or-circuit.py (Open multiple circuits on the same link)
-* client-or-circuit-drop.py (Open circuits and send DROP cells on them)
+* client-or-circuit-drop.py (Open circuits and send DROP cells)
+* client-or-circuit-begindir.py (Open circuits and send BEGINDIR cells)
 
 The other scripts are designed to clarify ambiguities in the tor specification.
 They are named after the corresponding tor trac ticket number.
