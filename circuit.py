@@ -459,9 +459,106 @@ def circuit_write_cell(context,
     # The force_* arguments are redundant here
     return circuit_write_cell_list(context, [cell])
 
+# The cell parsing functionality is in format_cell_bytes()
+circuit_read_cell_bytes = link_read_cell_bytes
+
+def circuit_close(context,
+                  force_link_version=None,
+                  payload_bytes=None,
+                  force_payload_len=None):
+    '''
+    Close the circuit in context using a DESTROY cell.
+    Returns the result of link_write_cell().
+    '''
+    cell_bytes = link_write_cell(context,
+                                 'DESTROY',
+                                 circ_id=context['circ_id'],
+                                 force_link_version=force_link_version,
+                                 payload_bytes=payload_bytes,
+                                 force_payload_len=force_payload_len)
+    # Enable re-use of the circuit id
+    del context['link'][context['circ_id']]
+    return cell_bytes
+
+def circuit_request_cell_list(link_context,
+                              cell_list,
+                              create_cell_command_string='CREATE_FAST',
+                              circ_id=None,
+                              force_link_version=None,
+                              max_response_len=MAX_READ_BUFFER_LEN,
+                              validate=True,
+                              do_shutdown=True):
+    '''
+    Send the Tor cells in cell_list on a newly created circuit on link_context,
+    (force_link_version overrides the negotiated link_version),
+    and read at most max_response_len bytes of response cells.
+    If do_shutdown is true, send a DESTROY cell to shut down the circuit.
+    Returns a tuple containing the modified link context, the circuit context,
+    the crypted sent cell bytes, the plaintext sent cell bytes, and the
+    (crypted) response cell bytes.
+    '''
+    circuit_context = circuit_create(link_context,
+                         create_cell_command_string=create_cell_command_string,
+                         circ_id=circ_id,
+                         force_link_version=force_link_version,
+                         max_response_len=max_response_len,
+                         validate=validate)
+    (sent_cell_list,
+     sent_crypt_cells_bytes,
+     sent_plain_cells_bytes) = circuit_write_cell_list(circuit_context,
+                                        cell_list,
+                                        force_link_version=force_link_version)
+    response_cells_bytes = bytearray()
+    if len(cell_list) > 0:
+        response_cells_bytes = circuit_read_cell_bytes(circuit_context,
+                                            max_response_len=max_response_len)
+    if do_shutdown:
+        sent_destroy_cell_bytes = circuit_close(circuit_context,
+                                        force_link_version=force_link_version)
+        sent_crypt_cells_bytes += sent_destroy_cell_bytes
+        sent_plain_cells_bytes += sent_destroy_cell_bytes
+        # we don't expect a response to a DESTROY
+    return (link_context, circuit_context,
+            sent_crypt_cells_bytes, sent_plain_cells_bytes,
+            response_cells_bytes)
+
+def circuit_request_cell(link_context,
+                         relay_command_string,
+                         cell_command_string='RELAY',
+                         circ_id=None,
+                         force_link_version=None,
+                         force_payload_len=None,
+                         stream_id=None,
+                         relay_payload_bytes=None,
+                         force_relay_payload_len=None,
+                         force_recognized_bytes=None,
+                         force_digest_bytes=None,
+                         create_cell_command_string='CREATE_FAST',
+                         max_response_len=MAX_READ_BUFFER_LEN,
+                         validate=True,
+                         do_shutdown=True):
+    '''
+    Send a Tor cell on a new circuit on link_context.
+    See circuit_request_cell_list() for details.
+    '''
+    cell = circuit_make_relay_cell(cell_command_string,
+                            relay_command_string,
+                            circ_id=circ_id,
+                            force_link_version=force_link_version,
+                            force_payload_len=force_payload_len,
+                            stream_id=stream_id,
+                            relay_payload_bytes=relay_payload_bytes,
+                            force_relay_payload_len=force_relay_payload_len,
+                            force_recognized_bytes=force_recognized_bytes,
+                            force_digest_bytes=force_digest_bytes)
+    return circuit_request_cell_list(link_context,
+                        [cell],
+                        create_cell_command_string=create_cell_command_string,
+                        circ_id=circ_id,
+                        force_link_version=force_link_version,
+                        max_response_len=max_response_len,
+                        validate=validate,
+                        do_shutdown=do_shutdown)
+
 # TODO: open streams
 # TODO: automatically allocate unused stream ids
-# TODO: receive and decrypt relay cells
-# TODO: return encrypted and unencrypted data from receive function
-# TODO: log received cells
-# TODO: send and receive cells in a "request"-style function

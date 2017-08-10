@@ -284,6 +284,7 @@ def format_cell_bytes(context, cell_bytes,
                         # caller knows when we are parsing a VERSIONS cell
                         link_version_list=link_version_list,
                         force_link_version=link_version,
+                        context=context,
                         skip_cell_bytes=skip_cell_bytes,
                         skip_zero_padding=skip_zero_padding)
 

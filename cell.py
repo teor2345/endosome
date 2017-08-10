@@ -367,9 +367,11 @@ def pack_cell(cell_command_string, link_version=None, circ_id=None,
     assert len(cell) == cell_len
     return cell
 
-def unpack_unused_payload(payload_len, payload_bytes):
+def unpack_unused_payload(payload_len, payload_bytes,
+                          context=None):
     '''
     Unpack an unused payload.
+    Ignores context.
     Returns a dictonary containing a placeholder key:
         'is_payload_unused_flag' : always True
     Asserts if payload_bytes is not exactly payload_len bytes long.
@@ -379,9 +381,11 @@ def unpack_unused_payload(payload_len, payload_bytes):
         'is_payload_unused_flag' : True,
         }
 
-def unpack_unknown_payload(payload_len, payload_bytes):
+def unpack_unknown_payload(payload_len, payload_bytes,
+                           context=None):
     '''
     Unpack a payload for an unknown cell command.
+    Ignores context.
     Returns a dictonary containing a placeholder key:
         'is_payload_unknown_flag' : always True
     Asserts if payload_bytes is not exactly payload_len bytes long.
@@ -391,9 +395,11 @@ def unpack_unknown_payload(payload_len, payload_bytes):
         'is_payload_unknown_flag' : True,
         }
 
-def unpack_not_implemented_payload(payload_len, payload_bytes):
+def unpack_not_implemented_payload(payload_len, payload_bytes,
+                                   context=None):
     '''
     Unpack a payload for a command that has no unpack implementation.
+    Ignores context.
     Returns a dictonary containing a placeholder key:
         'is_payload_unpack_implemented_flag' : always False
     Asserts if payload_bytes is not exactly payload_len bytes long.
@@ -435,9 +441,11 @@ def pack_versions_cell(link_version_list=[3,4,5],
                      link_version=force_link_version,
                      force_payload_len=force_payload_len)
 
-def unpack_versions_payload(payload_len, payload_bytes):
+def unpack_versions_payload(payload_len, payload_bytes,
+                            context=None):
     '''
     Unpack a versions cell payload from payload_bytes.
+    Ignores context.
     Returns a dict containing a single key:
         'link_version_list' : a list of supported integer link versions
     Asserts if payload_bytes is not exactly payload_len bytes long.
@@ -685,9 +693,11 @@ def pack_netinfo_cell(receiver_ip_string, sender_timestamp=None,
                      link_version=link_version,
                      force_payload_len=force_payload_len)
 
-def unpack_netinfo_payload(payload_len, payload_bytes):
+def unpack_netinfo_payload(payload_len, payload_bytes,
+                           context=None):
     '''
     Unpack a netinfo cell payload from payload_bytes.
+    Ignores context.
     Returns a dict containing these keys:
         'sender_timestamp'   : the sender's time in seconds since the epoch
         'receiver_ip_string' : the public IP address of the receiving end of
@@ -737,9 +747,11 @@ def pack_create_fast_cell(circ_id, link_version=None, force_payload_len=None):
                      link_version=link_version,
                      force_payload_len=force_payload_len)
 
-def unpack_create_fast_payload(payload_len, payload_bytes):
+def unpack_create_fast_payload(payload_len, payload_bytes,
+                               context=None):
     '''
     Unpack X from a CREATE_FAST payload.
+    Ignores context.
     Returns a dict containing this key:
         'X_bytes' : the client's key material
     Asserts if payload_bytes is not payload_len long.
@@ -754,9 +766,11 @@ def unpack_create_fast_payload(payload_len, payload_bytes):
 
 # TODO: pack_created_fast_cell
 
-def unpack_created_fast_payload(payload_len, payload_bytes):
+def unpack_created_fast_payload(payload_len, payload_bytes,
+                                context=None):
     '''
     Unpack Y and KH from a CREATED_FAST payload.
+    Ignores context.
     Returns a dict containing these keys:
         'Y_bytes'  : the server's key material
         'KH_bytes' : a hash proving that the server knows the shared key
@@ -1201,15 +1215,14 @@ def get_relay_payload_unpack_function(relay_command_value):
                                     unpack_not_implemented_payload)
     return unpack_unknown_payload
 
-def unpack_relay_payload_impl(data_bytes, link_version=None):
+def unpack_relay_payload_impl(data_len, data_bytes):
     '''
     Calls unpack_relay_header(), then adds relay-command-specific fields,
-    if available. You must pass the same link_version when packing the request
-    and unpacking the response.
+    if available.
     Asserts if the relay structure is missing mandatory fields.
     Returns a dict containing the relay payload fields.
     '''
-    relay_header = unpack_relay_header(data_bytes, link_version)
+    relay_header = unpack_relay_header(data_len, data_bytes)
     if not relay_header['is_relay_header_valid_flag']:
         # We can't trust anything in the relay header: it's encrypted or
         # corrupted
@@ -1225,9 +1238,11 @@ def unpack_relay_payload_impl(data_bytes, link_version=None):
     relay_content.update(relay_payload)
     return relay_content
 
-def unpack_relay_payload(crypt_bytes, hop_hash_context,
-                         hop_crypt_context,
-                         link_version=None, validate=True):
+def unpack_relay_payload_context(crypt_len,
+                                 crypt_bytes,
+                                 hop_hash_context,
+                                 hop_crypt_context,
+                                 validate=True):
     '''
     Decrypt the relay payload in crypt_bytes with hop_crypt_context, then
     unpack the relay cell payload, using hop_hash_context to check integrity.
@@ -1242,8 +1257,7 @@ def unpack_relay_payload(crypt_bytes, hop_hash_context,
     '''
     (hop_crypt_context, data_bytes) = crypt_bytes_context(hop_crypt_context,
                                                           crypt_bytes)
-    relay_content = unpack_relay_payload_impl(data_bytes,
-                                              link_version=link_version)
+    relay_content = unpack_relay_payload_impl(len(data_bytes), data_bytes)
 
     if validate:
         assert relay_header['is_relay_header_valid_flag']
@@ -1275,21 +1289,35 @@ def unpack_relay_payload(crypt_bytes, hop_hash_context,
     relay_content.update(digest_dict)
     return (relay_content, hop_crypt_context, hop_hash_context)
 
+def unpack_relay_payload(crypt_len,
+                         crypt_bytes,
+                         context=None):
+    '''
+    Calls unpack_relay_payload_context() using the backward hash and crypt
+    contexts in context, and returns the result.
+    '''
+    assert context is not None
+    hop_hash_context = context['Db_hash']
+    hop_crypt_context = context['Kb_crypt']
+    return unpack_relay_payload_context(crypt_len,
+                                        crypt_bytes,
+                                        hop_hash_context,
+                                        hop_crypt_context,
+                                        validate=True)
+
 # This table should be kept in sync with CELL_COMMAND
 CELL_UNPACK = {
     # Fixed-length Cells
     'PADDING'           : unpack_unused_payload,
 #   'CREATE'            : unpack_create_payload,
 #   'CREATED'           : unpack_created_payload,
-    # We can't pass the circuit context to unpack_relay_payload via unpack_cell
-    'RELAY'             : unpack_relay_payload_impl,
+    'RELAY'             : unpack_relay_payload,
 #   'DESTROY'           : unpack_destroy_payload,
     'CREATE_FAST'       : unpack_create_fast_payload,
     'CREATED_FAST'      : unpack_created_fast_payload,
 
     'NETINFO'           : unpack_netinfo_payload,
-    # We can't pass the circuit context to unpack_relay_payload via unpack_cell
-    'RELAY_EARLY'       : unpack_relay_payload_impl,
+    'RELAY_EARLY'       : unpack_relay_payload,
 #   'CREATE2'           : unpack_create2_payload,
 #   'CREATED2'          : unpack_created2_payload,
 #   'PADDING_NEGOTIATE' : unpack_padding_negotiate_payload,
@@ -1304,10 +1332,11 @@ CELL_UNPACK = {
 #   'AUTHORIZE'         : unpack_authorize_payload           # (Not yet used)
 }
 
-def unpack_cell(data_bytes, link_version=None):
+def unpack_cell(data_bytes, link_version=None,
+                context=None):
     '''
     Calls unpack_cell_header(), then adds cell-command-specific fields,
-    if available.
+    if available, using context to unpack relay cells.
     Asserts if the cell structure is missing mandatory fields.
     You must pass the same link_version when packing the request and unpacking
     the response.
@@ -1317,17 +1346,19 @@ def unpack_cell(data_bytes, link_version=None):
     unpack_function = get_payload_unpack_function(cell_command_value)
     payload_len = cell['payload_len']
     payload_bytes = cell['payload_bytes']
-    payload_dict = unpack_function(payload_len, payload_bytes)
+    payload_dict = unpack_function(payload_len, payload_bytes,
+                                   context=context)
     cell.update(payload_dict)
     return (cell, remaining_bytes)
 
 def unpack_cells(data_bytes, link_version_list=[3,4,5],
-                 force_link_version=None):
+                 force_link_version=None,
+                 context=None):
     '''
-    Unpack a stream of cells out of data_bytes, using
-    link_version_list. If link_version_list has multiple
-    elements, and data_bytes contains a VERSIONS cell, the highest common
-    supported link version will be used to destructure subsequent cells.
+    Unpack multiple cells out of data_bytes, using link_version_list.
+    If link_version_list has multiple elements, and data_bytes contains a
+    VERSIONS cell, the highest common supported link version will be used to
+    destructure subsequent cells.
     Returns a tuple containing a list of dicts with the destructured cells'
     contents, and the highest common supported link version, which is used
     to interpret the cells.
@@ -1336,6 +1367,7 @@ def unpack_cells(data_bytes, link_version_list=[3,4,5],
     You must pass the same link_version_list when packing the request and
     unpacking the response.
     force_link_version overrides any negotiated link version.
+    context is used to unpack relay cells.
     Asserts if data_bytes is not the exact length of the cells it contains.
     Asserts if there is no common link version.
     See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n503
@@ -1344,7 +1376,9 @@ def unpack_cells(data_bytes, link_version_list=[3,4,5],
     cell_list = []
     temp_bytes = data_bytes
     while len(temp_bytes) >= get_cell_min_var_length(link_version):
-        (cell, temp_bytes) = unpack_cell(temp_bytes, link_version)
+        (cell, temp_bytes) = unpack_cell(temp_bytes,
+                                         link_version=link_version,
+                                         context=context)
         cell_list.append(cell)
         # If it's a versions cell, interpret all future cells as the highest
         # common supported version
@@ -1362,15 +1396,18 @@ def unpack_cells(data_bytes, link_version_list=[3,4,5],
 
 def format_cells(data_bytes, link_version_list=[3,4,5],
                  force_link_version=None,
+                 context=None,
                  skip_cell_bytes=True, skip_zero_padding=True):
     '''
-    Unpack and format the cells in data_bytes using unpack_cells().
+    Unpack and format the cells in data_bytes using unpack_cells() with
+    force_link_version and context.
     Returns a string formatted according to the arguments.
     You must pass the same link_version_list when packing the request and
     unpacking the response.
     '''
     (link_version, cell_list) = unpack_cells(data_bytes, link_version_list,
-                                         force_link_version=force_link_version)
+                                        force_link_version=force_link_version,
+                                        context=context)
     result  = 'Link Version: {}\n'.format(link_version)
     result += '{} Cell(s):\n'.format(len(cell_list))
     for cell in cell_list:
