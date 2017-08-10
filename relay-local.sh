@@ -9,6 +9,9 @@ LOG_LEVEL=${LOG_LEVEL:-warn}
 TOR=${TOR:-tor}
 
 # Pass arguments to the tor daemon
+# These options MUST NOT be used on a relay that publishes its descriptor:
+# they are unsafe for user anonymity
 "$TOR" PublishServerDescriptor 0 AssumeReachable 1 ExitRelay 0 \
+       ProtocolWarnings 1 SafeLogging 0 LogTimeGranularity 1 \
        Log "$LOG_LEVEL stderr" DataDirectory `mktemp -d` \
        ORPort "$ORPORT" DirPort "$DIRPORT" "$@"
