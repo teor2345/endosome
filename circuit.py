@@ -215,8 +215,7 @@ def circuit_create(link_context,
     # Read and parse the response
     # You will hang here if you send a duplicate circuit ID
     created_cell_bytes = link_read_cell_bytes(link_context,
-                                         force_link_version=force_link_version,
-                                         max_response_len=max_response_len)
+                                           max_response_len=max_response_len)
     (_, cell_list) = unpack_cells_link(link_context, created_cell_bytes,
                                        force_link_version=force_link_version)
     # Now find the created cell

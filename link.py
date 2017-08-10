@@ -184,16 +184,13 @@ def link_write_cell(context,
     return link_write_cell_list(context, [cell])
 
 def link_read_cell_bytes(context,
-                         force_link_version=None,
                          max_response_len=MAX_READ_BUFFER_LEN):
     '''
     Reads and returns at most max_response_len bytes from the ssl_socket in
-    context, using the link_version in context.
+    context.
     Returns the cell bytes received.
-    force_link_version overrides the link_version in context.
     '''
     received_bytes = ssl_read(context, max_response_len)
-    link_version = get_link_version(context, force_link_version)
     return received_bytes
 
 def link_close(context,
@@ -237,8 +234,7 @@ def link_request_cell_list(ip, port,
     response_cell_bytes = bytearray()
     if len(cell_list) > 0:
         response_cell_bytes = link_read_cell_bytes(context,
-                                        force_link_version=force_link_version,
-                                        max_response_len=max_response_len)
+                                            max_response_len=max_response_len)
     link_close(context, do_shutdown)
     return (context, response_cell_bytes)
 
