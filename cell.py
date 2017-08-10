@@ -1247,7 +1247,7 @@ def unpack_relay_payload(crypt_bytes, hop_hash_context,
 
     if validate:
         assert relay_header['is_relay_header_valid_flag']
-    else:
+    else if not relay_header['is_relay_header_valid_flag']:
         return (relay_content, hop_crypt_context, hop_hash_context)
 
     # We could just zero out the relevant bytes in the payload instead
