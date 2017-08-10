@@ -11,6 +11,7 @@ import time
 
 from pack import *
 from connect import *
+from crypto import *
 
 # Cells and cell fields
 
@@ -774,19 +775,521 @@ def unpack_created_fast_payload(payload_len, payload_bytes):
         'KH_bytes' : KH_bytes,
         }
 
+# Relay cell packing and unpacking
+# this depends on unpack_cell_header(), and is used by unpack_cell()
+
+# Relay command field constants
+
+# This table should be kept in sync with RELAY_UNPACK
+RELAY_COMMAND = {
+    # General Relay Commands
+    # https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n1257
+    # [c] means [control], [c?] means [sometimes control].
+    # [f] means [forward], [b] means backward.
+    # node can be guard, middle, or end.
+    # end can be exit, dir (inc. hsdir), intro, or rend.
+    # edge can be an exit, hidden service (hs), or dir.
+    'RELAY_BEGIN'                  :  1, # [f]      [client to exit/hs]
+    'RELAY_DATA'                   :  2, # [f or b] [client to/from edge]
+    'RELAY_END'                    :  3, # [f or b] [client to/from edge]
+    'RELAY_CONNECTED'              :  4, # [b]      [edge to client]
+    'RELAY_SENDME'                 :  5, # [f or b] [client to/from edge] [c?]
+    'RELAY_EXTEND'                 :  6, # [f]      [client to node]      [c]
+    'RELAY_EXTENDED'               :  7, # [b]      [node to client]      [c]
+    'RELAY_TRUNCATE'               :  8, # [f]      [client to node]      [c]
+    'RELAY_TRUNCATED'              :  9, # [b]      [node to client]      [c]
+    'RELAY_DROP'                   : 10, # [f or b] [c/n to/from n/c]     [c]
+    'RELAY_RESOLVE'                : 11, # [f]      [client to exit]
+    'RELAY_RESOLVED'               : 12, # [b]      [exit to client]
+    'RELAY_BEGIN_DIR'              : 13, # [f]      [client to dir]
+    'RELAY_EXTEND2'                : 14, # [f]      [client to node]      [c]
+    'RELAY_EXTENDED2'              : 15, # [b]      [node to client]      [c]
+
+    # Onion Service (Hidden Service) Relay Commands
+    # https://gitweb.torproject.org/torspec.git/tree/rend-spec.txt#n102
+    # We use RELAY_* for all of these, despite what they're called in the spec.
+    # See https://trac.torproject.org/projects/tor/ticket/22994
+    'RELAY_ESTABLISH_INTRO'        : 32, # [f]      [service to intro]    [c]
+    'RELAY_ESTABLISH_RENDEZVOUS'   : 33, # [f]      [client to rend]      [c]
+    'RELAY_INTRODUCE1'             : 34, # [f]      [client to intro]     [c]
+    'RELAY_INTRODUCE2'             : 35, # [b]      [intro to service]    [c]
+    'RELAY_RENDEZVOUS1'            : 36, # [f]      [service to rend]     [c]
+    'RELAY_RENDEZVOUS2'            : 37, # [b]      [rend to client]      [c]
+    'RELAY_INTRO_ESTABLISHED'      : 38, # [b]      [intro to service]    [c]
+    'RELAY_RENDEZVOUS_ESTABLISHED' : 39, # [b]      [rend to client]      [c]
+    'RELAY_INTRODUCE_ACK'          : 40, # [b]      [intro to client]     [c]
+}
+
+def get_relay_command_value(relay_command_string):
+    '''
+    Returns the relay command value for relay_command_string.
+    Asserts if relay_command_string is not a known relay command string.
+    '''
+    return RELAY_COMMAND[relay_command_string]
+
+def get_relay_command_string(relay_command_value):
+    '''
+    Returns the relay command string for relay_command_value.
+    Returns a descriptive string if relay_command_value is not a known relay
+    command value.
+    '''
+    for relay_command_string in RELAY_COMMAND:
+        if (relay_command_value ==
+            get_relay_command_value(relay_command_string)):
+            return relay_command_string
+    return 'UNKNOWN_RELAY_COMMAND_{}'.format(relay_command_value)
+
+RELAY_COMMAND_LEN = 1
+RECOGNIZED_LEN = 2
+STREAM_ID_LEN = 2
+RELAY_DIGEST_LEN = 4
+RELAY_PAYLOAD_LENGTH_LEN = 2
+
+RELAY_HEADER_LEN = (RELAY_COMMAND_LEN + RECOGNIZED_LEN + STREAM_ID_LEN +
+                    RELAY_DIGEST_LEN + RELAY_PAYLOAD_LENGTH_LEN)
+MAX_FIXED_RELAY_PAYLOAD_LEN = MAX_FIXED_PAYLOAD_LEN - RELAY_HEADER_LEN
+
+def pack_relay_header(relay_command_string,
+                      stream_id=None,
+                      relay_digest_bytes=None,
+                      relay_payload_len=None,
+                      force_recognized_bytes=None):
+    '''
+    Pack the relay header into a sequence of bytes.
+    If stream_id is None, 0 is used.
+    If relay_digest_bytes is None, zero bytes are used.
+    If relay_payload_len is None, 0 is used.
+    If force_recognized_bytes is not none, its value is used.
+    See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n1240
+    '''
+    # Find the values
+    relay_command_value = get_relay_command_value(relay_command_string)
+    recognized_value = (0 if force_recognized_bytes is None else
+                        force_recognized_bytes)
+    stream_id_value = 0 if stream_id is None else stream_id
+    relay_payload_len_value = (0 if relay_payload_len is None else
+                               relay_payload_len)
+    # Now pack the bytes
+    relay_header  = pack_value(RELAY_COMMAND_LEN, relay_command_value)
+    relay_header += pack_value(RECOGNIZED_LEN, recognized_value)
+    relay_header += pack_value(STREAM_ID_LEN, stream_id_value)
+    if relay_digest_bytes is not None:
+        assert len(relay_digest_bytes) == RELAY_DIGEST_LEN
+        # No byte-swapping here
+        relay_header += relay_digest_bytes
+    else:
+        relay_header += get_zero_pad(RELAY_DIGEST_LEN)
+    relay_header += pack_value(RELAY_PAYLOAD_LENGTH_LEN,
+                               relay_payload_len_value)
+    return relay_header
+
+def is_relay_header_valid(relay_payload_len, recognized_bytes):
+    '''
+    Perform quick checks on recognized_bytes and relay_payload_len to see if
+    a relay header is valid.
+    '''
+    # TODO: if variable-length relay payloads are ever allowed, this will break
+    if relay_payload_len > MAX_FIXED_RELAY_PAYLOAD_LEN:
+        return False
+    if recognized_bytes != get_zero_pad(len(recognized_bytes)):
+        return False
+    # We can't check the digest: we don't have the context
+    return True
+
+def unpack_relay_header(payload_len, payload_bytes):
+    '''
+    Unpack the relay header from a RELAY or RELAY_FAST cell.
+    Returns a dict containing these keys:
+        relay_command_string             : the relay command as a string
+        relay_command_value              : the relay command integer value
+        stream_id                        : the stream id, or 0 for circuit
+                                           control commands
+        recognized_bytes                 : 0 if the cell belongs to this hop
+        relay_digest_bytes               : a digest of all bytes sent to this
+                                           hop of this circuit, including this
+                                           cell's bytes with a zero digest
+        relay_payload_len                : the length of the relay payload
+        relay_payload_bytes              : the bytes in the relay payload
+        is_relay_payload_zero_bytes_flag : True if the relay payload is all
+                                           zero bytes (can indicate
+                                           misinterpreted padding)
+        is_relay_header_valid_flag       : is the relay header valid?
+                                           this flag is approximate, it will
+                                           be True with probability 498/2**32
+                                           for random cells
+    in a tuple with the remainder of the byte string (the relay payload).
+    Asserts if relay_payload_bytes is not relay_payload_len long.
+    Asserts if relay_payload_len is less than RELAY_HEADER_LEN.
+    See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n1240
+    '''
+    assert len(payload_bytes) == payload_len
+    assert payload_len >= RELAY_HEADER_LEN
+    assert payload_len <= MAX_FIXED_PAYLOAD_LEN
+    # Unpack the bytes
+    temp_bytes = payload_bytes
+    (relay_command_value, temp_bytes) = unpack_value(RELAY_COMMAND_LEN,
+                                                     temp_bytes)
+    (recognized_bytes, temp_bytes) = split_field(RECOGNIZED_LEN, temp_bytes)
+    (stream_id, temp_bytes) = unpack_value(STREAM_ID_LEN, temp_bytes)
+    (relay_digest_bytes, temp_bytes) = split_field(RELAY_DIGEST_LEN,
+                                                    temp_bytes)
+    (relay_payload_len, temp_bytes) = unpack_value(RELAY_PAYLOAD_LENGTH_LEN,
+                                                   temp_bytes)
+    # Find derived values
+    is_relay_header_valid_flag = is_relay_header_valid(relay_payload_len,
+                                                       recognized_bytes)
+    result = {
+        'relay_command_value'              : relay_command_value,
+        'stream_id'                        : stream_id,
+        'recognized_bytes'                 : recognized_bytes,
+        'relay_digest_bytes'               : relay_digest_bytes,
+        'relay_payload_len'                : relay_payload_len,
+        'is_relay_header_valid_flag'       : is_relay_header_valid_flag,
+        }
+    if is_relay_header_valid_flag:
+        relay_command_string = get_relay_command_string(relay_command_value)
+        (relay_payload_bytes, _) = split_field(relay_payload_len, temp_bytes)
+        is_relay_payload_zero_bytes_flag = (relay_payload_bytes ==
+                                            get_zero_pad(relay_payload_len))
+        result.update({
+        'relay_command_string'             : relay_command_string,
+        'relay_payload_bytes'              : relay_payload_bytes,
+        'is_relay_payload_zero_bytes_flag' : is_relay_payload_zero_bytes_flag,
+        })
+    return result
+
+def pack_relay_payload_impl(relay_command_string,
+                            stream_id=None,
+                            digest_bytes=None,
+                            relay_payload_bytes=None,
+                            force_recognized_bytes=None,
+                            force_relay_payload_len=None):
+    '''
+    Pack relay_payload_bytes into a RELAY or RELAY_EARLY cell payload.
+    If relay_payload_bytes is None, the relay payload part of the payload is
+    empty. The relay payload is padded with zero bytes.
+    If force_relay_payload_len is not None, it is used in the relay header
+    instead of len(relay_payload_bytes).
+    See pack_relay_header() for other argument details.
+    See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n1240
+    '''
+    # Find the values
+    relay_payload_len = (0 if relay_payload_bytes is None else
+                         len(relay_payload_bytes))
+    assert relay_payload_len <= MAX_FIXED_RELAY_PAYLOAD_LEN
+    payload_data_len = RELAY_HEADER_LEN + relay_payload_len
+    assert payload_data_len <= MAX_FIXED_PAYLOAD_LEN
+    zero_pad_len = MAX_FIXED_RELAY_PAYLOAD_LEN - relay_payload_len
+
+    # Pack the payload
+    if force_relay_payload_len is None:
+        force_relay_payload_len = relay_payload_len
+    payload_bytes = pack_relay_header(relay_command_string,
+                                     relay_digest_bytes=digest_bytes,
+                                     stream_id=stream_id,
+                                     relay_payload_len=force_relay_payload_len)
+
+    if relay_payload_bytes is not None:
+        payload_bytes += relay_payload_bytes
+
+    # pad fixed-length cells to their length
+    assert len(payload_bytes) == payload_data_len
+    payload_bytes += get_zero_pad(zero_pad_len)
+
+    assert len(payload_bytes) == MAX_FIXED_PAYLOAD_LEN
+    return payload_bytes
+
+def pack_relay_payload(relay_command_string,
+                       hop_hash_context,
+                       hop_crypt_context,
+                       stream_id=None,
+                       relay_payload_bytes=None,
+                       force_recognized_bytes=None,
+                       force_digest_bytes=None,
+                       force_relay_payload_len=None):
+    '''
+    Pack relay_payload_bytes into a RELAY or RELAY_EARLY cell payload,
+    calculating the digest based on the running digest of all relay cell
+    payloads on this circuit hop (hop_hash_context), after updating it with
+    this relay cell's payload (with all zero digest bytes).
+    Then encrypt the payload with hop_crypt_context.
+    If force_recognized_bytes, force_digest_bytes, or force_relay_payload_len
+    are not None, their values are used instead of the default or calculated
+    values.
+    See pack_relay_payload_impl() for other argument details.
+    See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n1240
+    Returns a tuple with the encrypted payload bytes, plaintext payload bytes,
+    and the new circuit hop hash and crypt states.
+    '''
+    if force_digest_bytes:
+        return pack_relay_payload_impl(relay_command_string,
+                               stream_id=stream_id,
+                               digest_bytes=force_digest_bytes,
+                               relay_payload_bytes=relay_payload_bytes,
+                               force_recognized_bytes=force_recognized_bytes,
+                               force_relay_payload_len=force_relay_payload_len)
+
+    payload_zero_digest_bytes = pack_relay_payload_impl(relay_command_string,
+                               stream_id=stream_id,
+                               digest_bytes=None,
+                               relay_payload_bytes=relay_payload_bytes,
+                               force_recognized_bytes=force_recognized_bytes,
+                               force_relay_payload_len=force_relay_payload_len)
+
+    hop_hash_context = hash_update(hop_hash_context, payload_zero_digest_bytes)
+    digest_bytes = hash_extract(hop_hash_context, output_len=RELAY_DIGEST_LEN)
+
+    plain_payload_bytes = pack_relay_payload_impl(
+                               relay_command_string,
+                               stream_id=stream_id,
+                               digest_bytes=digest_bytes,
+                               relay_payload_bytes=relay_payload_bytes,
+                               force_recognized_bytes=force_recognized_bytes,
+                               force_relay_payload_len=force_relay_payload_len)
+
+    (hop_crypt_context, crypt_payload_bytes) = crypt_bytes_context(
+                                                         hop_crypt_context,
+                                                         plain_payload_bytes)
+
+    return (crypt_payload_bytes, plain_payload_bytes,
+            hop_hash_context, hop_crypt_context)
+
+def pack_relay_drop_data():
+    '''
+    Return a RELAY_DROP relay payload data, containing
+    MAX_FIXED_RELAY_PAYLOAD_LEN random bytes.
+    See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n1534
+        https://trac.torproject.org/projects/tor/ticket/22948
+    '''
+    return get_random_bytes(MAX_FIXED_RELAY_PAYLOAD_LEN)
+
+def pack_relay_drop_payload(circuit_hash_context,
+                            force_recognized_bytes=None,
+                            force_digest_bytes=None,
+                            force_relay_payload_len=None):
+    '''
+    Pack a RELAY_DROP cell payload.
+    See pack_relay_payload() for argument and return value details.
+    '''
+    return pack_relay_payload('RELAY_DROP',
+                              circuit_hash_context,
+                              stream_id=None,
+                              relay_payload_bytes=pack_relay_drop_data(),
+                              force_recognized_bytes=force_recognized_bytes,
+                              force_digest_bytes=force_digest_bytes,
+                              force_relay_payload_len=force_relay_payload_len)
+
+def pack_relay_sendme_payload(circuit_hash_context,
+                              stream_id=None,
+                              force_recognized_bytes=None,
+                              force_digest_bytes=None,
+                              force_relay_payload_len=None):
+    '''
+    Pack a RELAY_SENDME cell payload.
+    If stream_id is None, the SENDME cell is for the circuit, otherwise, it is
+    for the specified stream.
+    See pack_relay_payload() for argument and return value details.
+    '''
+    return pack_relay_payload('RELAY_SENDME',
+                              circuit_hash_context,
+                              stream_id=stream_id,
+                              relay_payload_bytes=None,
+                              force_recognized_bytes=force_recognized_bytes,
+                              force_digest_bytes=force_digest_bytes,
+                              force_relay_payload_len=force_relay_payload_len)
+
+def pack_relay_begin_dir_payload(circuit_hash_context,
+                                 stream_id,
+                                 force_recognized_bytes=None,
+                                 force_digest_bytes=None,
+                                 force_relay_payload_len=None):
+    '''
+    Pack a RELAY_BEGIN_DIR cell payload.
+    stream_id is the id of the resulting stream, it must be a positive,
+    non-zero integer and unique on the circuit.
+    See pack_relay_payload() for argument and return value details.
+    '''
+    assert stream_id > 0
+    return pack_relay_payload('RELAY_BEGIN_DIR',
+                              circuit_hash_context,
+                              stream_id=stream_id,
+                              relay_payload_bytes=None,
+                              force_recognized_bytes=force_recognized_bytes,
+                              force_digest_bytes=force_digest_bytes,
+                              force_relay_payload_len=force_relay_payload_len)
+
+CONNECTED_ADDRESS_TYPE_LEN = 1
+CONNECTED_TTL_LEN = 4
+MIN_RELAY_CONNECTED_LEN = 8
+
+def unpack_relay_connected_payload(relay_payload_len, relay_payload_bytes):
+    '''
+    Unpack the relay payload from a RELAY_CONNECTED cell.
+    Returns a dict containing these keys:
+        connected_ip_string : the IP address that the remote relay connected to
+        connected_ttl       : the TTL for which this address can be cached
+    Asserts if relay_payload_bytes is not relay_payload_len long.
+    Asserts if relay_payload_len is less than MIN_RELAY_CONNECTED_LEN.
+    See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n1354
+    '''
+    assert len(relay_payload_bytes) == relay_payload_len
+    assert relay_payload_len >= MIN_RELAY_CONNECTED_LEN
+    temp_bytes = relay_payload_bytes
+    if (temp_bytes == get_zero_pad(IPV4_ADDRESS_LEN)):
+        # Four zero-valued octets followed by a type/IPv6/TTL
+        (_, temp_bytes) = split_field(IPV4_ADDRESS_LEN, temp_bytes)
+        (addr_type, temp_bytes) = split_field(CONNECTED_ADDRESS_TYPE_LEN,
+                                              temp_bytes)
+        assert addr_type == IPV6_ADDRESS_TYPE
+    else:
+        # IPv4/TTL
+        addr_type = IPV4_ADDRESS_TYPE
+    (connected_ip_string, temp_bytes) = unpack_ip_address_bytes(temp_bytes,
+                                                                addr_type)
+    (connected_ttl, _) = unpack_value(CONNECTED_TTL_LEN, temp_bytes)
+    return {
+        'connected_ip_string' : connected_ip_string,
+        'connected_ttl'       : connected_ttl,
+        }
+
+# This table should be kept in sync with RELAY_COMMAND
+RELAY_UNPACK = {
+    # General Relay Commands
+#   'RELAY_BEGIN'                  : unpack_relay_begin_payload,
+#   'RELAY_DATA'                   : unpack_relay_data_payload,
+#   'RELAY_END'                    : unpack_relay_end_payload,
+    'RELAY_CONNECTED'              : unpack_relay_connected_payload,
+    'RELAY_SENDME'                 : unpack_unused_payload,
+#   'RELAY_EXTEND'                 : unpack_relay_extend_payload,
+#   'RELAY_EXTENDED'               : unpack_relay_extended_payload,
+    'RELAY_TRUNCATE'               : unpack_unused_payload,
+#   'RELAY_TRUNCATED'              : unpack_destroy_payload,
+    'RELAY_DROP'                   : unpack_unused_payload,
+#   'RELAY_RESOLVE'                : unpack_relay_resolve_payload,
+#   'RELAY_RESOLVED'               : unpack_relay_resolved_payload,
+    'RELAY_BEGIN_DIR'              : unpack_unused_payload,
+#   'RELAY_EXTEND2'                : unpack_relay_extend2_payload,
+#   'RELAY_EXTENDED2'              : unpack_relay_extended2_payload,
+
+    # Onion Service (Hidden Service) Relay Commands
+#   'RELAY_ESTABLISH_INTRO'        : unpack_relay_establish_intro_payload,
+#   'RELAY_ESTABLISH_RENDEZVOUS'   : unpack_relay_establish_rendezvous_payload,
+#   'RELAY_INTRODUCE1'             : unpack_relay_introduce1_payload,
+#   'RELAY_INTRODUCE2'             : unpack_relay_introduce2_payload,
+#   'RELAY_RENDEZVOUS1'            : unpack_relay_rendezvous1_payload,
+#   'RELAY_RENDEZVOUS2'            : unpack_relay_rendezvous2_payload,
+    # Only unused for legacy introduction points:
+#   'RELAY_INTRO_ESTABLISHED'      : unpack_relay_intro_established_payload,
+    'RELAY_RENDEZVOUS_ESTABLISHED' : unpack_unused_payload,
+#   'RELAY_INTRODUCE_ACK'          : unpack_relay_introdurc_ack_payload,
+}
+
+def get_relay_payload_unpack_function(relay_command_value):
+    '''
+    Returns the relay unpack function for relay_command_value.
+    This function takes two arguments, relay_payload_len and
+    relay_payload_bytes, and returns a dictionary containing the destructured
+    payload contents.
+    Returns unpack_unknown_payload if relay_command_value is not a known relay
+    command value, and unpack_not_implemented_payload if it is known, but
+    there is no unpack implementation.
+    '''
+    for relay_command_string in RELAY_COMMAND:
+        if (relay_command_value ==
+            get_relay_command_value(relay_command_string)):
+            return RELAY_UNPACK.get(relay_command_string,
+                                    unpack_not_implemented_payload)
+    return unpack_unknown_payload
+
+def unpack_relay_payload_impl(data_bytes, link_version=None):
+    '''
+    Calls unpack_relay_header(), then adds relay-command-specific fields,
+    if available. You must pass the same link_version when packing the request
+    and unpacking the response.
+    Asserts if the relay structure is missing mandatory fields.
+    Returns a dict containing the relay payload fields.
+    '''
+    relay_header = unpack_relay_header(data_bytes, link_version)
+    if not relay_header['is_relay_header_valid_flag']:
+        # We can't trust anything in the relay header: it's encrypted or
+        # corrupted
+        return relay_header
+    relay_command_value = relay_header['relay_command_value']
+    unpack_function = get_payload_unpack_function(relay_command_value)
+    relay_payload_len = relay_header['relay_payload_len']
+    relay_payload_bytes = relay_header['relay_payload_bytes']
+    relay_payload = unpack_function(relay_payload_len,
+                                    relay_payload_bytes)
+    # Not just the relay header any more
+    relay_content = relay_header
+    relay_content.update(relay_payload)
+    return relay_content
+
+def unpack_relay_payload(crypt_bytes, hop_hash_context,
+                         hop_crypt_context,
+                         link_version=None, validate=True):
+    '''
+    Decrypt the relay payload in crypt_bytes with hop_crypt_context, then
+    unpack the relay cell payload, using hop_hash_context to check integrity.
+    Adds the following fields:
+        expected_relay_digest_bytes : the expected relay digest, based on the
+                                      cell's payload bytes, with a zero digest
+    If validate, check the digest and recognized are correct.
+    See unpack_relay_payload_impl() for other argument details.
+    See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n1240
+    Returns a tuple containing the unpacked cell, the modified crypt context,
+    and the updated hash context.
+    '''
+    (hop_crypt_context, data_bytes) = crypt_bytes_context(hop_crypt_context,
+                                                          crypt_bytes)
+    relay_content = unpack_relay_payload_impl(data_bytes,
+                                              link_version=link_version)
+
+    if validate:
+        assert relay_header['is_relay_header_valid_flag']
+    else:
+        return (relay_content, hop_crypt_context, hop_hash_context)
+
+    # We could just zero out the relevant bytes in the payload instead
+    relay_command_string = relay_content['relay_command_string']
+    stream_id = relay_content['stream_id']
+    relay_payload_bytes = relay_content['relay_payload_bytes']
+    recognized_bytes = relay_content['recognized_bytes']
+    payload_zero_digest_bytes = pack_relay_payload_impl(relay_command_string,
+                                 stream_id=stream_id,
+                                 digest_bytes=None,
+                                 relay_payload_bytes=relay_payload_bytes,
+                                 force_recognized_bytes=recognized_bytes)
+
+    hop_hash_context = hash_update(hop_hash_context, payload_zero_digest_bytes)
+    expected_relay_digest_bytes = hash_extract(hop_hash_context,
+                                               RELAY_DIGEST_LEN)
+    if validate:
+        # check the cell was decoded correctly
+        assert (expected_relay_digest_bytes ==
+                relay_content['relay_digest_bytes'])
+        assert recognized_bytes == get_zero_pad(RECOGNIZED_LEN)
+    digest_dict = {
+        'expected_relay_digest_bytes' : expected_relay_digest_bytes,
+        }
+    relay_content.update(digest_dict)
+    return (relay_content, hop_crypt_context, hop_hash_context)
+
 # This table should be kept in sync with CELL_COMMAND
 CELL_UNPACK = {
     # Fixed-length Cells
     'PADDING'           : unpack_unused_payload,
 #   'CREATE'            : unpack_create_payload,
 #   'CREATED'           : unpack_created_payload,
-#   'RELAY'             : unpack_relay_payload,
+    # We can't pass the circuit context to unpack_relay_payload via unpack_cell
+    'RELAY'             : unpack_relay_payload_impl,
 #   'DESTROY'           : unpack_destroy_payload,
     'CREATE_FAST'       : unpack_create_fast_payload,
     'CREATED_FAST'      : unpack_created_fast_payload,
 
     'NETINFO'           : unpack_netinfo_payload,
-#   'RELAY_EARLY'       : unpack_relay_payload,
+    # We can't pass the circuit context to unpack_relay_payload via unpack_cell
+    'RELAY_EARLY'       : unpack_relay_payload_impl,
 #   'CREATE2'           : unpack_create2_payload,
 #   'CREATED2'          : unpack_created2_payload,
 #   'PADDING_NEGOTIATE' : unpack_padding_negotiate_payload,

@@ -34,7 +34,7 @@ Scripts with the same basename do the same thing in different languages.
 
 The scripts can be run in any order.
 
-Here they are in increasing order of abstraction:
+Here they are in increasing order of functionality and abstraction:
 
 DirPort:
 * client-dir.{sh,py} (DirPort)
@@ -54,6 +54,7 @@ Tor Links:
 
 Tor Circuits:
 * client-or-circuit.py (Open multiple circuits on the same link)
+* client-or-circuit-drop.py (Open circuits and send DROP cells on them)
 
 The other scripts are designed to clarify ambiguities in the tor specification.
 They are named after the corresponding tor trac ticket number.
@@ -62,7 +63,9 @@ They are named after the corresponding tor trac ticket number.
 
 * endosome.py imports all the other files
 * connect.py opens, closes, and exchanges data on TCP and SSL connections
-* cell.py packs and unpacks cells
+* crypto.py contains some Tor cryptographic primitives
+* pack.py packs and unpacks individual data fields
+* cell.py crypts, packs, and unpacks cells
 * link.py opens, closes, and exchanges data on Tor links
 * circuit.py opens, closes, and exchanges data on Tor circuits
 
