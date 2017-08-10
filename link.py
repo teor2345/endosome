@@ -151,8 +151,11 @@ def link_write_cell_list(context,
     ssl_write(context, cell_bytes)
     return cell_bytes
 
-def link_make_cell(cell_command_string, circ_id=None, payload_bytes=None,
-                   force_link_version=None, force_payload_len=None):
+def link_make_cell(cell_command_string,
+                   circ_id=None,
+                   force_link_version=None,
+                   payload_bytes=None,
+                   force_payload_len=None):
     '''
     Return a dictionary containing the cell contents, as in link_write_cell().
     '''
@@ -169,16 +172,19 @@ def link_make_cell(cell_command_string, circ_id=None, payload_bytes=None,
     return cell
 
 def link_write_cell(context,
-                    cell_command_string, circ_id=None, payload_bytes=None,
-                    force_link_version=None, force_payload_len=None):
+                    cell_command_string, circ_id=None,
+                    force_link_version=None,
+                    payload_bytes=None,
+                    force_payload_len=None):
     '''
     Write a Tor cell with cell_command_string, circ_id, and payload.
     Returns the cell bytes sent on the wire.
     See link_write_cell_list() for details.
     '''
-    cell = link_make_cell(cell_command_string, circ_id=circ_id,
-                          payload_bytes=payload_bytes,
+    cell = link_make_cell(cell_command_string,
+                          circ_id=circ_id,
                           force_link_version=force_link_version,
+                          payload_bytes=payload_bytes,
                           force_payload_len=force_payload_len)
     # force_* are redundant here
     return link_write_cell_list(context, [cell])
