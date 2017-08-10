@@ -15,7 +15,8 @@ def split_field(byte_len, data_bytes):
     Asserts if data_bytes is not at least byte_len bytes long.
     '''
     assert len(data_bytes) >= byte_len
-    return (data_bytes[0:byte_len], data_bytes[byte_len:])
+    return (bytearray(data_bytes[0:byte_len]),
+            bytearray(data_bytes[byte_len:]))
 
 # struct formats. See
 # https://docs.python.org/2/library/struct.html#byte-order-size-and-alignment
@@ -84,4 +85,4 @@ def get_random_bytes(random_len):
     assert random_len >= 0
     result = os.urandom(random_len)
     assert len(result) == random_len
-    return result
+    return bytearray(result)
