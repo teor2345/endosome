@@ -126,6 +126,7 @@ def link_pack_cell(context,
     cell_bytes = bytearray()
     link_version = get_link_version(context, force_link_version)
     cell_link_version = cell.get('force_link_version', link_version)
+    #print force_link_version, link_version, cell_link_version, cell.get('circ_id')
     return pack_cell(cell['cell_command_string'],
                      circ_id=cell.get('circ_id'),
                      payload_bytes=cell.get('payload_bytes'),
