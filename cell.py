@@ -1255,7 +1255,7 @@ def unpack_relay_payload_impl(data_len, data_bytes):
         # corrupted
         return relay_header
     relay_command_value = relay_header['relay_command_value']
-    unpack_function = get_payload_unpack_function(relay_command_value)
+    unpack_function = get_relay_payload_unpack_function(relay_command_value)
     relay_payload_len = relay_header['relay_payload_len']
     relay_payload_bytes = relay_header['relay_payload_bytes']
     relay_payload = unpack_function(relay_payload_len,
