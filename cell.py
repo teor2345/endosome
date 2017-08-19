@@ -19,12 +19,12 @@ from crypto import *
 # https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n538
 
 LINK_VERSION_DESC = {
-  None : 'negotiating link version',
-     1 : 'certs up front',
-     2 : 'renegotiation',
-     3 : 'in-protocol',
-     4 : 'circuit ID 4 bytes',
-     5 : 'link padding and negotiation',
+  None : '?: unknown link version',
+     1 : '1: certs up front',
+     2 : '2: renegotiation',
+     3 : '3: in-protocol',
+     4 : '4: circuit ID 4 bytes',
+     5 : '5: link padding negotiation',
 }
 
 # The link version we use at the start of a connection
