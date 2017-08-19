@@ -41,7 +41,7 @@ ORPORT=${ORPORT:-12345}
 #
 # Unfortunately, there's no way to tell s_client to wait for a response, or to
 # timeout
-(sleep 1; echo "Use Ctrl-C to terminate openssl s_client") &
+(sleep 2; echo "Use Ctrl-C to terminate openssl s_client") &
 # Echo the input commands to the output
 set -v
 echo 0000 07 0002 0004 \
