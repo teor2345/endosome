@@ -142,7 +142,9 @@ def circuit_create(link_context,
     required to continue using the circuit:
         'circ_id'            : the circuit id for this circuit
         'link'               : the link context for this circuit
-    And the first hop (TODO: put these in a different structure):
+    And the first hop request (TODO: put these in a different structure):
+        'create_cell_bytes'  : the create cell sent to establish the circuit
+    And response: (missing if there is no response)
         'K0_bytes'           : the shared key for the circuit
         'KH_bytes'           : a hash that shows the remote side knows K0
         'Df_bytes'           : the forward digest seed, derived from K0
@@ -153,7 +155,6 @@ def circuit_create(link_context,
         'Kf_crypt'           : the forward encryption context, key Kf_bytes
         'Kb_bytes'           : the backward encryption key, derived from K0
         'Kb_crypt'           : the backward decryption context, key Kb_bytes
-        'create_cell_bytes'  : the create cell sent to establish the circuit
         'created_cell_bytes' : the created cell received in response
     Also adds the following entries to the link context:
        'circuits'            : a dictionary containing the circuits on this
@@ -196,15 +197,18 @@ def circuit_create(link_context,
     (_, cell_list) = unpack_cells_link(link_context, created_cell_bytes,
                                        force_link_version=force_link_version)
     # Now find the created cell
+    created_fast_found = False
     for cell in cell_list:
         # Find the create cell, and add it to the circuit context
         cell_command_string = cell['cell_command_string']
         if cell_command_string.startswith('CREATED'):
             created_cell = cell
             remote_circ_id = created_cell['circ_id']
+            assert remote_circ_id == local_circ_id
             # if our circuit requests get out of order, nothing will work
             assert local_circ_id == remote_circ_id
             if cell_command_string == 'CREATED_FAST':
+                created_fast_found = True
                 KH_bytes = created_cell['KH_bytes']
                 Y_bytes = created_cell['Y_bytes']
                 # K0=X|Y
@@ -252,24 +256,32 @@ def circuit_create(link_context,
     # Create the circuit context
     circuit_context = {
         # circuit
-        'circ_id'            : remote_circ_id,
+        'circ_id'            : local_circ_id,
         'link'               : link_context,
-        # hop
-        # TODO: multi-hop circuits: next_hop_context and previous_hop_context?
-        # Or a hop array?
-        'K0_bytes'           : K0_bytes,
-        'KH_bytes'           : KH_bytes,
-        'Df_bytes'           : Df_bytes,
-        'Df_hash'            : Df_hash,
-        'Db_bytes'           : Db_bytes,
-        'Db_hash'            : Db_hash,
-        'Kf_bytes'           : Kf_bytes,
-        'Kf_crypt'           : Kf_crypt,
-        'Kb_bytes'           : Kb_bytes,
-        'Kb_crypt'           : Kb_crypt,
         'create_cell_bytes'  : create_cell_bytes,
-        'created_cell_bytes' : created_cell_bytes,
         }
+
+    if created_fast_found:
+        extra_context = {
+            # hop
+            # TODO: multi-hop circuits: next_hop_context and
+            # previous_hop_context?
+            # Or a hop array?
+            'K0_bytes'           : K0_bytes,
+            'KH_bytes'           : KH_bytes,
+            'Df_bytes'           : Df_bytes,
+            'Df_hash'            : Df_hash,
+            'Db_bytes'           : Db_bytes,
+            'Db_hash'            : Db_hash,
+            'Kf_bytes'           : Kf_bytes,
+            'Kf_crypt'           : Kf_crypt,
+            'Kb_bytes'           : Kb_bytes,
+            'Kb_crypt'           : Kb_crypt,
+            'created_cell_bytes' : created_cell_bytes,
+            }
+        circuit_context.update(extra_context)
+    else:
+        print "Error: CREATED_FAST cell not received from remote OR"
 
     add_circuit_context(link_context, circuit_context)
     return circuit_context
