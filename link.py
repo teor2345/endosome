@@ -267,32 +267,3 @@ def link_request_cell(ip, port,
                                   sender_ip_list=sender_ip_list,
                                   max_response_len=max_response_len,
                                   do_shutdown=do_shutdown)
-
-def format_cell_bytes(context, cell_bytes,
-                      initial_cells=False,
-                      force_link_version=None,
-                      skip_cell_bytes=True, skip_zero_padding=True):
-    '''
-    Unpack and format the cells in cell_bytes using format_cells(), supplying
-    the relevant arguments from context.
-    If initial_cells is True, automatically determines the link version from
-    the initial VERSIONS cell.
-    Supports link and circuit contexts.
-    Returns a string formatted according to the arguments.
-    '''
-    link_version = None
-    if not initial_cells:
-        link_version = get_link_version(context, force_link_version)
-    link_version_list = get_link_version_list(context,
-                                        force_link_version=force_link_version)
-    return format_cells(cell_bytes,
-                        # we must use force_link_version, because only the
-                        # caller knows when we are parsing a VERSIONS cell
-                        link_version_list=link_version_list,
-                        force_link_version=link_version,
-                        context=context,
-                        skip_cell_bytes=skip_cell_bytes,
-                        skip_zero_padding=skip_zero_padding)
-
-# compatibility with older scripts
-link_format_cell_bytes = format_cell_bytes
