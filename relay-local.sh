@@ -13,5 +13,6 @@ TOR=${TOR:-tor}
 # they are unsafe for user anonymity
 "$TOR" PublishServerDescriptor 0 AssumeReachable 1 ExitRelay 0 \
        ProtocolWarnings 1 SafeLogging 0 LogTimeGranularity 1 \
+       PidFile tor.pid \
        Log "$LOG_LEVEL stderr" DataDirectory `mktemp -d` \
        ORPort "$ORPORT" DirPort "$DIRPORT" "$@"
