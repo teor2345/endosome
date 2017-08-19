@@ -3,12 +3,13 @@
 # Tested: Python 2.7.13 on macOS 10.12.5 with OpenSSL 1.0.2l and tor 0.3.0.9.
 # (The default OpenSSL on macOS is *very* old.)
 
+# Link-level functions
+
 import binascii
 
 from connect import *
 from cell import *
 
-# Link-level functions
 def get_link_context(context):
     '''
     Return the link context in context, which can be any kind of context.

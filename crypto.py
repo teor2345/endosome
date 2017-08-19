@@ -3,6 +3,8 @@
 # Tested: Python 2.7.13 on macOS 10.12.5 with OpenSSL 1.0.2l and tor 0.3.0.9.
 # (The default OpenSSL on macOS is *very* old.)
 
+# Cryptographic Functions
+
 import binascii
 
 import cryptography.hazmat.primitives.ciphers as ciphers
@@ -16,8 +18,6 @@ import cryptography.hazmat.backends as backends
 from pack import *
 
 BITS_IN_BYTE = 8
-
-# Cryptographic Functions
 
 def hash_create(algorithm=hashes.SHA1()):
     '''

@@ -3,12 +3,13 @@
 # Tested: Python 2.7.13 on macOS 10.12.5 with OpenSSL 1.0.2l and tor 0.3.0.9.
 # (The default OpenSSL on macOS is *very* old.)
 
+# Circuit-level functions
+
 from pack import *
 from connect import *
 from cell import *
 from link import *
 
-# Circuit-level functions
 def get_circuit_context(context):
     '''
     Return the circuit context in context.

@@ -3,6 +3,8 @@
 # Tested: Python 2.7.13 on macOS 10.12.5 with OpenSSL 1.0.2l and tor 0.3.0.9.
 # (The default OpenSSL on macOS is *very* old.)
 
+# Cell packing, unpacking, crypting, and integrity checking functions
+
 import binascii
 # ipaddress backport available for python 2.6, 2.7, 3.2
 import ipaddress
@@ -12,8 +14,6 @@ import time
 from pack import *
 from connect import *
 from crypto import *
-
-# Cells and cell fields
 
 # Link version constants
 # https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n538
