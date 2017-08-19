@@ -26,6 +26,38 @@ def get_circuit_or_link_context(context):
     # TODO: extract circuit contexts from stream contexts
     return context
 
+def circuit_get_crypt_context(context,
+                              is_cell_outbound_flag=None):
+    '''
+    Returns a tuple containing the hash and crypt contexts from context,
+    based on is_cell_outbound_flag.
+    '''
+    assert is_cell_outbound_flag is not None
+    context = get_circuit_context(context)
+    if is_cell_outbound_flag:
+        return (context['Df_hash'], context['Kf_crypt'])
+    else:
+        return (context['Db_hash'], context['Kb_crypt'])
+
+def circuit_set_crypt_context(context,
+                              hop_hash_context,
+                              hop_crypt_context,
+                              is_cell_outbound_flag=None):
+    '''
+    Sets the hash and crypt contexts in context, based on
+    is_cell_outbound_flag.
+    '''
+    assert is_cell_outbound_flag is not None
+    context = get_circuit_context(context)
+    if is_cell_outbound_flag:
+        context['Df_hash'] = hop_hash_context
+        # Setting the crypt context is redundant, since the crypt context is
+        # always modified in-place (it can't be copied).
+        # But it's nice to show that we're modifying it along with the digest.
+        context['Kf_crypt'] = hop_crypt_context
+    else:
+        context['Db_hash'] = hop_hash_context
+        context['Kb_crypt'] = hop_crypt_context
 
 def get_circuits(context):
     '''
@@ -312,10 +344,10 @@ def circuit_write_cell_list(context,
     context = get_circuit_context(context)
     sent_cell_list = []
     plain_cells_bytes = bytearray()
-    # This hard-codes sending cells only in the forward direction
-    # TODO: generalise, so we can send cells back as well
-    hop_hash_context = context['Df_hash']
-    hop_crypt_context = context['Kf_crypt']
+    # Assume we're a client
+    (hop_hash_context,
+     hop_crypt_context) = circuit_get_crypt_context(context,
+                                                    is_cell_outbound_flag=True)
     for cell in cell_list:
         sent_cell = cell.copy()
         # If the cell doesn't have a circuit_id, use the one from the context
@@ -330,12 +362,11 @@ def circuit_write_cell_list(context,
                                         force_link_version=force_link_version)
         sent_cell_list.append(sent_cell)
         plain_cells_bytes += plain_cell_bytes
-    # This hard-codes sending cells only in the forward direction
-    # TODO: generalise, so we can send cells back as well
-    context['Df_hash'] = hop_hash_context
-    # This is redundant, since the crypt context is modified in-place.
-    # But it's nice to show that we're modifying it along with the digest.
-    context['Kf_crypt'] = hop_crypt_context
+    # We already assumed we're the client
+    circuit_set_crypt_context(context,
+                              hop_hash_context,
+                              hop_crypt_context,
+                              is_cell_outbound_flag=True)
     crypt_cells_bytes = link_write_cell_list(context['link'],
                                         sent_cell_list,
                                         force_link_version=force_link_version)

@@ -368,10 +368,12 @@ def pack_cell(cell_command_string, link_version=None, circ_id=None,
     return cell
 
 def unpack_unused_payload(payload_len, payload_bytes,
-                          context=None):
+                          hop_hash_context=None,
+                          hop_crypt_context=None,
+                          validate=None):
     '''
     Unpack an unused payload.
-    Ignores context.
+    Ignores the contexts and validate.
     Returns a dictonary containing a placeholder key:
         'is_payload_unused_flag' : always True
     Asserts if payload_bytes is not exactly payload_len bytes long.
@@ -382,10 +384,12 @@ def unpack_unused_payload(payload_len, payload_bytes,
         }
 
 def unpack_unknown_payload(payload_len, payload_bytes,
-                           context=None):
+                           hop_hash_context=None,
+                           hop_crypt_context=None,
+                           validate=None):
     '''
     Unpack a payload for an unknown cell command.
-    Ignores context.
+    Ignores the contexts and validate.
     Returns a dictonary containing a placeholder key:
         'is_payload_unknown_flag' : always True
     Asserts if payload_bytes is not exactly payload_len bytes long.
@@ -396,10 +400,12 @@ def unpack_unknown_payload(payload_len, payload_bytes,
         }
 
 def unpack_not_implemented_payload(payload_len, payload_bytes,
-                                   context=None):
+                                   hop_hash_context=None,
+                                   hop_crypt_context=None,
+                                   validate=None):
     '''
     Unpack a payload for a command that has no unpack implementation.
-    Ignores context.
+    Ignores the contexts and validate.
     Returns a dictonary containing a placeholder key:
         'is_payload_unpack_implemented_flag' : always False
     Asserts if payload_bytes is not exactly payload_len bytes long.
@@ -442,10 +448,12 @@ def pack_versions_cell(link_version_list=[3,4,5],
                      force_payload_len=force_payload_len)
 
 def unpack_versions_payload(payload_len, payload_bytes,
-                            context=None):
+                            hop_hash_context=None,
+                            hop_crypt_context=None,
+                            validate=None):
     '''
     Unpack a versions cell payload from payload_bytes.
-    Ignores context.
+    Ignores the contexts and validate.
     Returns a dict containing a single key:
         'link_version_list' : a list of supported integer link versions
     Asserts if payload_bytes is not exactly payload_len bytes long.
@@ -694,10 +702,12 @@ def pack_netinfo_cell(receiver_ip_string, sender_timestamp=None,
                      force_payload_len=force_payload_len)
 
 def unpack_netinfo_payload(payload_len, payload_bytes,
-                           context=None):
+                           hop_hash_context=None,
+                           hop_crypt_context=None,
+                           validate=None):
     '''
     Unpack a netinfo cell payload from payload_bytes.
-    Ignores context.
+    Ignores the contexts and validate.
     Returns a dict containing these keys:
         'sender_timestamp'   : the sender's time in seconds since the epoch
         'receiver_ip_string' : the public IP address of the receiving end of
@@ -748,10 +758,12 @@ def pack_create_fast_cell(circ_id, link_version=None, force_payload_len=None):
                      force_payload_len=force_payload_len)
 
 def unpack_create_fast_payload(payload_len, payload_bytes,
-                               context=None):
+                               hop_hash_context=None,
+                               hop_crypt_context=None,
+                               validate=None):
     '''
     Unpack X from a CREATE_FAST payload.
-    Ignores context.
+    Ignores the contexts and validate.
     Returns a dict containing this key:
         'X_bytes' : the client's key material
     Asserts if payload_bytes is not payload_len long.
@@ -767,10 +779,12 @@ def unpack_create_fast_payload(payload_len, payload_bytes,
 # TODO: pack_created_fast_cell
 
 def unpack_created_fast_payload(payload_len, payload_bytes,
-                                context=None):
+                                hop_hash_context=None,
+                                hop_crypt_context=None,
+                                validate=None):
     '''
     Unpack Y and KH from a CREATED_FAST payload.
-    Ignores context.
+    Ignores the contexts and validate.
     Returns a dict containing these keys:
         'Y_bytes'  : the server's key material
         'KH_bytes' : a hash proving that the server knows the shared key
@@ -1077,7 +1091,7 @@ def pack_relay_drop_data():
     '''
     return get_random_bytes(MAX_FIXED_RELAY_PAYLOAD_LEN)
 
-def pack_relay_drop_payload(circuit_hash_context,
+def pack_relay_drop_payload(hop_hash_context, hop_crypt_context,
                             force_recognized_bytes=None,
                             force_digest_bytes=None,
                             force_relay_payload_len=None):
@@ -1086,14 +1100,14 @@ def pack_relay_drop_payload(circuit_hash_context,
     See pack_relay_payload() for argument and return value details.
     '''
     return pack_relay_payload('RELAY_DROP',
-                              circuit_hash_context,
+                              hop_hash_context, hop_crypt_context,
                               stream_id=None,
                               relay_payload_bytes=pack_relay_drop_data(),
                               force_recognized_bytes=force_recognized_bytes,
                               force_digest_bytes=force_digest_bytes,
                               force_relay_payload_len=force_relay_payload_len)
 
-def pack_relay_sendme_payload(circuit_hash_context,
+def pack_relay_sendme_payload(hop_hash_context, hop_crypt_context,
                               stream_id=None,
                               force_recognized_bytes=None,
                               force_digest_bytes=None,
@@ -1105,14 +1119,14 @@ def pack_relay_sendme_payload(circuit_hash_context,
     See pack_relay_payload() for argument and return value details.
     '''
     return pack_relay_payload('RELAY_SENDME',
-                              circuit_hash_context,
+                              hop_hash_context, hop_crypt_context,
                               stream_id=stream_id,
                               relay_payload_bytes=None,
                               force_recognized_bytes=force_recognized_bytes,
                               force_digest_bytes=force_digest_bytes,
                               force_relay_payload_len=force_relay_payload_len)
 
-def pack_relay_begin_dir_payload(circuit_hash_context,
+def pack_relay_begin_dir_payload(hop_hash_context, hop_crypt_context,
                                  stream_id,
                                  force_recognized_bytes=None,
                                  force_digest_bytes=None,
@@ -1125,7 +1139,7 @@ def pack_relay_begin_dir_payload(circuit_hash_context,
     '''
     assert stream_id > 0
     return pack_relay_payload('RELAY_BEGIN_DIR',
-                              circuit_hash_context,
+                              hop_hash_context, hop_crypt_context,
                               stream_id=stream_id,
                               relay_payload_bytes=None,
                               force_recognized_bytes=force_recognized_bytes,
@@ -1238,33 +1252,54 @@ def unpack_relay_payload_impl(data_len, data_bytes):
     relay_content.update(relay_payload)
     return relay_content
 
-def unpack_relay_payload_context(crypt_len,
-                                 crypt_bytes,
-                                 hop_hash_context,
-                                 hop_crypt_context,
-                                 validate=True):
+def unpack_relay_payload(crypt_len,
+                         crypt_bytes,
+                         hop_hash_context=None,
+                         hop_crypt_context=None,
+                         validate=True):
     '''
-    Decrypt the relay payload in crypt_bytes with hop_crypt_context, then
-    unpack the relay cell payload, using hop_hash_context to check integrity.
+    If hop_crypt_context is not None, encrypt the relay payload in crypt_bytes.
+    Then unpack the relay cell payload.
+    If validate is True, check that recognized is correct.
+    If validate is True and hop_hash_context is not None, use it to check the
+    payload digest.
     Adds the following fields:
         expected_relay_digest_bytes : the expected relay digest, based on the
                                       cell's payload bytes, with a zero digest
-    If validate, check the digest and recognized are correct.
+                                      (optional, only present if
+                                       hop_hash_context is not None)
     See unpack_relay_payload_impl() for other argument details.
     See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n1240
-    Returns a tuple containing the unpacked cell, the modified crypt context,
-    and the updated hash context.
+    Returns a dict containing the unpacked cell fields.
+    Modifies the crypt and hash contexts in-place.
     '''
-    (hop_crypt_context, data_bytes) = crypt_bytes_context(hop_crypt_context,
+    assert crypt_len == len(crypt_bytes)
+    #print validate, hop_crypt_context, crypt_len
+    #print binascii.hexlify(crypt_bytes)
+    if hop_crypt_context is not None:
+        (hop_crypt_context, data_bytes) = crypt_bytes_context(
+                                                          hop_crypt_context,
                                                           crypt_bytes)
+    else:
+        # if it's already decrypted, we will unpack the full content
+        # otherwise, we will unpack the cell header
+        data_bytes = crypt_bytes
+    #print binascii.hexlify(data_bytes)
     relay_content = unpack_relay_payload_impl(len(data_bytes), data_bytes)
+    #print relay_content
 
+    # If we're not validating, skip hash checking
     if validate:
-        assert relay_header['is_relay_header_valid_flag']
-    else if not relay_header['is_relay_header_valid_flag']:
-        return (relay_content, hop_crypt_context, hop_hash_context)
+        assert relay_content['is_relay_header_valid_flag']
+    elif not relay_content['is_relay_header_valid_flag']:
+        return relay_content
 
-    # We could just zero out the relevant bytes in the payload instead
+    # If we don't have the hash context, we can't check the hash
+    if hop_hash_context is None:
+        return relay_content
+
+    # We could just zero out the relevant bytes in the payload, but this is
+    # better abstracted (and tests more of our code)
     relay_command_string = relay_content['relay_command_string']
     stream_id = relay_content['stream_id']
     relay_payload_bytes = relay_content['relay_payload_bytes']
@@ -1274,10 +1309,12 @@ def unpack_relay_payload_context(crypt_len,
                                  digest_bytes=None,
                                  relay_payload_bytes=relay_payload_bytes,
                                  force_recognized_bytes=recognized_bytes)
-
-    hop_hash_context = hash_update(hop_hash_context, payload_zero_digest_bytes)
+    hop_hash_context = hash_update(hop_hash_context,
+                                   payload_zero_digest_bytes,
+                                   make_context_reusable=False)
     expected_relay_digest_bytes = hash_extract(hop_hash_context,
-                                               RELAY_DIGEST_LEN)
+                                               RELAY_DIGEST_LEN,
+                                               make_context_reusable=False)
     if validate:
         # check the cell was decoded correctly
         assert (expected_relay_digest_bytes ==
@@ -1287,23 +1324,7 @@ def unpack_relay_payload_context(crypt_len,
         'expected_relay_digest_bytes' : expected_relay_digest_bytes,
         }
     relay_content.update(digest_dict)
-    return (relay_content, hop_crypt_context, hop_hash_context)
-
-def unpack_relay_payload(crypt_len,
-                         crypt_bytes,
-                         context=None):
-    '''
-    Calls unpack_relay_payload_context() using the backward hash and crypt
-    contexts in context, and returns the result.
-    '''
-    assert context is not None
-    hop_hash_context = context['Db_hash']
-    hop_crypt_context = context['Kb_crypt']
-    return unpack_relay_payload_context(crypt_len,
-                                        crypt_bytes,
-                                        hop_hash_context,
-                                        hop_crypt_context,
-                                        validate=True)
+    return relay_content
 
 # This table should be kept in sync with CELL_COMMAND
 CELL_UNPACK = {
@@ -1333,13 +1354,16 @@ CELL_UNPACK = {
 }
 
 def unpack_cell(data_bytes, link_version=None,
-                context=None):
+                hop_hash_context=None, hop_crypt_context=None,
+                validate=True):
     '''
     Calls unpack_cell_header(), then adds cell-command-specific fields,
-    if available, using context to unpack relay cells.
+    if available, using the contexts to unpack relay cells.
     Asserts if the cell structure is missing mandatory fields.
     You must pass the same link_version when packing the request and unpacking
     the response.
+    Updates hop_hash_context and hop_crypt_context in-place, and validates
+    digests if validate is True.
     '''
     (cell, remaining_bytes) = unpack_cell_header(data_bytes, link_version)
     cell_command_value = cell['cell_command_value']
@@ -1347,13 +1371,16 @@ def unpack_cell(data_bytes, link_version=None,
     payload_len = cell['payload_len']
     payload_bytes = cell['payload_bytes']
     payload_dict = unpack_function(payload_len, payload_bytes,
-                                   context=context)
+                                   hop_hash_context=hop_hash_context,
+                                   hop_crypt_context=hop_crypt_context,
+                                   validate=validate)
     cell.update(payload_dict)
     return (cell, remaining_bytes)
 
 def unpack_cells(data_bytes, link_version_list=[3,4,5],
                  force_link_version=None,
-                 context=None):
+                 hop_hash_context=None, hop_crypt_context=None,
+                 validate=True):
     '''
     Unpack multiple cells out of data_bytes, using link_version_list.
     If link_version_list has multiple elements, and data_bytes contains a
@@ -1367,9 +1394,11 @@ def unpack_cells(data_bytes, link_version_list=[3,4,5],
     You must pass the same link_version_list when packing the request and
     unpacking the response.
     force_link_version overrides any negotiated link version.
-    context is used to unpack relay cells.
+    The contexts are used to unpack relay cells, which are validated if
+    validate is True. (Validation failures assert.)
     Asserts if data_bytes is not the exact length of the cells it contains.
     Asserts if there is no common link version.
+    Updates hop_hash_context and hop_crypt_context in-place.
     See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n503
     '''
     link_version = force_link_version
@@ -1378,7 +1407,9 @@ def unpack_cells(data_bytes, link_version_list=[3,4,5],
     while len(temp_bytes) >= get_cell_min_var_length(link_version):
         (cell, temp_bytes) = unpack_cell(temp_bytes,
                                          link_version=link_version,
-                                         context=context)
+                                         hop_hash_context=hop_hash_context,
+                                         hop_crypt_context=hop_crypt_context,
+                                         validate=validate)
         cell_list.append(cell)
         # If it's a versions cell, interpret all future cells as the highest
         # common supported version
