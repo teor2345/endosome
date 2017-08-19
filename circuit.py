@@ -9,40 +9,78 @@ from cell import *
 from link import *
 
 # Circuit-level functions
+def get_circuit_context(context):
+    '''
+    Return the circuit context in context.
+    '''
+    # If it doesn't have a link, it's not a circuit context
+    assert 'link' in context
+    # TODO: extract circuit contexts from stream contexts
+    return context
 
-
+def get_circuit_or_link_context(context):
+    '''
+    Return a circuit or link context from context, preferring a circuit
+    context if possible.
+    '''
+    # TODO: extract circuit contexts from stream contexts
+    return context
 
 
 def get_circuits(context):
     '''
-    Return the circuits from context. Supports link and circuit contexts.
+    Return the circuits from context.
     If context does not have circuits, return an empty dict.
     '''
-    # Use the link context from circuit contexts
-    if 'link' in context:
-        context = context['link']
-    return context.get('circuits', {})
+    link_context = get_link_context(context)
+    return link_context.get('circuits', {})
 
 def is_circ_id_used(context, circ_id):
     '''
     Returns True if circ_id is used in context, and False if it is not.
-    Supports link and circuit contexts.
     '''
-    return circ_id in get_circuits(context)
+    link_context = get_link_context(context)
+    return circ_id in get_circuits(link_context)
 
 def get_unused_circ_id(context, is_initiator_flag=True,
                        force_link_version=None):
     '''
     Returns the first valid, unused circ_id in context.
-    Supports link and circuit contexts.
     '''
-    link_version = get_link_version(context, force_link_version)
+    link_context = get_link_context(context)
+    link_version = get_link_version(link_context, force_link_version)
     circ_id = get_min_valid_circ_id(link_version,
                                     is_initiator_flag=is_initiator_flag)
-    while is_circ_id_used(context, circ_id):
+    while is_circ_id_used(link_context, circ_id):
         circ_id += 1
         assert circ_id < get_max_valid_circ_id(link_version)
     return circ_id
+
+def add_circuit_context(link_context, circuit_context):
+    '''
+    Add circuit_context to link_context.
+    '''
+    link_context = get_link_context(link_context)
+    circuit_context = get_circuit_context(circuit_context)
+    # This creates a circular reference, which modern python GCs can handle
+    circ_id = circuit_context['circ_id']
+    assert not is_circ_id_used(link_context, circ_id)
+    circuit_context['link'] = link_context
+    link_context.setdefault('circuits', {})
+    link_context['circuits'][circ_id] = circuit_context
+    assert is_circ_id_used(link_context, circ_id)
+
+def remove_circuit_context(link_context, circuit_context):
+    '''
+    Remove circuit_context from link_context.
+    '''
+    link_context = get_link_context(link_context)
+    circuit_context = get_circuit_context(circuit_context)
+    # This breaks the circular dependency created by add_circuit_context()
+    circ_id = circuit_context['circ_id']
+    assert is_circ_id_used(link_context, circ_id)
+    del link_context['circuits'][circ_id]
+    assert not is_circ_id_used(link_context, circ_id)
 
 # See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n997
 KH_LEN = HASH_LEN
@@ -89,6 +127,7 @@ def circuit_create(link_context,
                                link, keyed by circuit id
        'circuits'/circ_id    : the circuit context for this circuit
     '''
+    link_context = get_link_context(link_context)
     # choose an unused circuit id, not just the lowest one
     if circ_id is None:
         circ_id = get_unused_circ_id(link_context, is_initiator_flag=True,
@@ -199,10 +238,7 @@ def circuit_create(link_context,
         'created_cell_bytes' : created_cell_bytes,
         }
 
-    # Update the link context with the circuit context
-    link_context.setdefault('circuits', {})
-    # This creates a circular reference, which modern python GCs can handle
-    link_context['circuits'][remote_circ_id] = circuit_context
+    add_circuit_context(link_context, circuit_context)
     return circuit_context
 
 def circuit_crypt_cell_payload(context,
@@ -217,6 +253,7 @@ def circuit_crypt_cell_payload(context,
     Returns cell with a crypted cell payload, the new hop_hash_context,
     the modified hop_crypt_context, and the packed, plaintext cell bytes.
     '''
+    context = get_circuit_context(context)
     relay_command_string = cell['relay_command_string']
     stream_id = cell.get('stream_id')
     relay_payload_bytes = cell.get('relay_payload_bytes')
@@ -272,6 +309,7 @@ def circuit_write_cell_list(context,
     The returned cell list includes circ_id and encrypted payload_bytes for
     each cell.
     '''
+    context = get_circuit_context(context)
     sent_cell_list = []
     plain_cells_bytes = bytearray()
     # This hard-codes sending cells only in the forward direction
@@ -351,6 +389,7 @@ def circuit_write_cell(context,
     encryption), and the cell bytes before encryption.
     See circuit_write_cell_list() for details.
     '''
+    context = get_circuit_context(context)
     cell = circuit_make_relay_cell(cell_command_string,
                                relay_command_string,
                                circ_id=circ_id,
@@ -364,8 +403,17 @@ def circuit_write_cell(context,
     # The force_* arguments are redundant here
     return circuit_write_cell_list(context, [cell])
 
-# The cell parsing functionality is in format_cell_bytes()
-circuit_read_cell_bytes = link_read_cell_bytes
+def circuit_read_cell_bytes(context,
+                            max_response_len=MAX_READ_BUFFER_LEN):
+    '''
+    Reads and returns at most max_response_len bytes from the ssl_socket in
+    circuit_context.
+    Returns the cell bytes received.
+    (Cell parsing functionality is in format_cell_bytes().)
+    '''
+    link_context = get_link_context(context)
+    return link_read_cell_bytes(link_context,
+                                max_response_len=max_response_len)
 
 def circuit_close(context,
                   force_link_version=None,
@@ -375,14 +423,17 @@ def circuit_close(context,
     Close the circuit in context using a DESTROY cell.
     Returns the result of link_write_cell().
     '''
-    cell_bytes = link_write_cell(context,
+    circuit_context = get_circuit_context(context)
+    link_context = get_link_context(context)
+    destroy_circ_id = circuit_context['circ_id']
+    cell_bytes = link_write_cell(link_context,
                                  'DESTROY',
-                                 circ_id=context['circ_id'],
+                                 circ_id=destroy_circ_id,
                                  force_link_version=force_link_version,
                                  payload_bytes=payload_bytes,
                                  force_payload_len=force_payload_len)
     # Enable re-use of the circuit id
-    del context['link'][context['circ_id']]
+    remove_circuit_context(link_context, circuit_context)
     return cell_bytes
 
 def circuit_request_cell_list(link_context,
@@ -399,9 +450,10 @@ def circuit_request_cell_list(link_context,
     and read at most max_response_len bytes of response cells.
     If do_shutdown is true, send a DESTROY cell to shut down the circuit.
     Returns a tuple containing the modified link context, the circuit context,
-    the crypted sent cell bytes, the plaintext sent cell bytes, and the
-    (crypted) response cell bytes.
+    the crypted sent cells bytes, the plaintext sent cells bytes, and the
+    (crypted) response cell(s) bytes.
     '''
+    link_context = get_link_context(link_context)
     circuit_context = circuit_create(link_context,
                          create_cell_command_string=create_cell_command_string,
                          circ_id=circ_id,
@@ -446,6 +498,7 @@ def circuit_request_cell(link_context,
     Send a Tor cell on a new circuit on link_context.
     See circuit_request_cell_list() for details.
     '''
+    link_context = get_link_context(link_context)
     cell = circuit_make_relay_cell(cell_command_string,
                             relay_command_string,
                             circ_id=circ_id,

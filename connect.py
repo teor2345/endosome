@@ -10,6 +10,23 @@ import ssl
 
 MAX_READ_BUFFER_LEN = 10*1024*1024
 
+def get_connect_context(context):
+    '''
+    Return the connect context in context, which can be any kind of context.
+    '''
+    # TODO: extract connect contexts from stream contexts
+    if 'link' in context:
+        # Each link can have multiple circuits. Find the underlying link.
+        context = context['link']
+    else:
+        # TCP, SSL, and link contexts are equivalent.
+        # Each TCP connection has 0..1 SSL connections, which has 0..1 Tor
+        # links.
+        pass
+    # Every link context must have a TCP socket
+    assert 'tcp_socket' in context
+    return context
+
 def tcp_open(ip, port):
     '''
     Send a TCP request to ip and port.
@@ -25,6 +42,7 @@ def tcp_write(context, request_bytes):
     '''
     Send a TCP request to the tcp_socket in context.
     '''
+    context = get_connect_context(context)
     context['tcp_socket'].sendall(request_bytes)
 
 def tcp_read(context, max_response_len=MAX_READ_BUFFER_LEN):
@@ -32,6 +50,7 @@ def tcp_read(context, max_response_len=MAX_READ_BUFFER_LEN):
     Reads and returns at most max_response_len bytes from the tcp_socket in
     context.
     '''
+    context = get_connect_context(context)
     return bytearray(context['tcp_socket'].recv(max_response_len))
 
 def tcp_close(context, do_shutdown=True):
@@ -40,6 +59,7 @@ def tcp_close(context, do_shutdown=True):
     If do_shutdown is True, shut down communication on the socket immediately,
     rather than waiting for the system to potentially clear buffers.
     '''
+    context = get_connect_context(context)
     if do_shutdown:
         context['tcp_socket'].shutdown(socket.SHUT_RDWR)
     context['tcp_socket'].close()
@@ -80,6 +100,7 @@ def ssl_write(context, request_bytes):
     '''
     Send a SSL request to the ssl_socket in context.
     '''
+    context = get_connect_context(context)
     context['ssl_socket'].sendall(request_bytes)
 
 def ssl_read(context, max_response_len=MAX_READ_BUFFER_LEN):
@@ -87,6 +108,7 @@ def ssl_read(context, max_response_len=MAX_READ_BUFFER_LEN):
     Reads and returns at most max_response_len bytes from the ssl_socket in
     context.
     '''
+    context = get_connect_context(context)
     return bytearray(context['ssl_socket'].recv(max_response_len))
 
 def ssl_close(context, do_shutdown=True):
@@ -95,6 +117,7 @@ def ssl_close(context, do_shutdown=True):
     If do_shutdown is True, shut down communication on the socket immediately,
     rather than waiting for the system to potentially clear buffers.
     '''
+    context = get_connect_context(context)
     if do_shutdown:
         context['ssl_socket'].shutdown(socket.SHUT_RDWR)
     context['ssl_socket'].close()
