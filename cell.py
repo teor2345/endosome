@@ -1148,19 +1148,31 @@ def pack_relay_begin_dir_payload(hop_hash_context, hop_crypt_context,
 
 CONNECTED_ADDRESS_TYPE_LEN = 1
 CONNECTED_TTL_LEN = 4
-MIN_RELAY_CONNECTED_LEN = 8
+MIN_RELAY_CONNECTED_LEN = IPV4_ADDRESS_LEN + CONNECTED_TTL_LEN
 
 def unpack_relay_connected_payload(relay_payload_len, relay_payload_bytes):
     '''
     Unpack the relay payload from a RELAY_CONNECTED cell.
-    Returns a dict containing these keys:
-        connected_ip_string : the IP address that the remote relay connected to
-        connected_ttl       : the TTL for which this address can be cached
+    Returns a dictionary containing the following keys:
+        connected_ip_string    : the IP address that the remote relay
+                                 connected to in response to the BEGIN cell
+                                 (CONNECTED responses to BEGIN cells only)
+        connected_ttl          : the TTL for which this address can be cached
+                                 (CONNECTED responses to BEGIN cells only)
+        is_connected_begin_dir : True if the CONNECTED cell was in response
+                                 to a BEGIN_DIR cell, False if it was in
+                                 response to a BEGIN cell
     Asserts if relay_payload_bytes is not relay_payload_len long.
     Asserts if relay_payload_len is less than MIN_RELAY_CONNECTED_LEN.
     See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n1354
     '''
     assert len(relay_payload_bytes) == relay_payload_len
+    # BEGIN_DIR responses have no payload
+    # See https://trac.torproject.org/projects/tor/ticket/23276
+    if relay_payload_len == 0:
+        return {
+            'is_connected_begin_dir' : True,
+        }
     assert relay_payload_len >= MIN_RELAY_CONNECTED_LEN
     temp_bytes = relay_payload_bytes
     if (temp_bytes == get_zero_pad(IPV4_ADDRESS_LEN)):
@@ -1176,8 +1188,9 @@ def unpack_relay_connected_payload(relay_payload_len, relay_payload_bytes):
                                                                 addr_type)
     (connected_ttl, _) = unpack_value(CONNECTED_TTL_LEN, temp_bytes)
     return {
-        'connected_ip_string' : connected_ip_string,
-        'connected_ttl'       : connected_ttl,
+        'connected_ip_string'    : connected_ip_string,
+        'connected_ttl'          : connected_ttl,
+        'is_connected_begin_dir' : False,
         }
 
 # This table should be kept in sync with RELAY_COMMAND
