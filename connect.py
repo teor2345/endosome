@@ -61,7 +61,11 @@ def tcp_close(context, do_shutdown=True):
     '''
     context = get_connect_context(context)
     if do_shutdown:
-        context['tcp_socket'].shutdown(socket.SHUT_RDWR)
+        try:
+            context['tcp_socket'].shutdown(socket.SHUT_RDWR)
+        except socket.error as e:
+            # A "Socket is not connected" error here is harmless
+            print "Socket error '{}' during shutdown".format(e)
     context['tcp_socket'].close()
 
 def tcp_request(ip, port, request_bytes,
@@ -119,7 +123,11 @@ def ssl_close(context, do_shutdown=True):
     '''
     context = get_connect_context(context)
     if do_shutdown:
-        context['ssl_socket'].shutdown(socket.SHUT_RDWR)
+        try:
+            context['ssl_socket'].shutdown(socket.SHUT_RDWR)
+        except socket.error as e:
+            # A "Socket is not connected" error here is harmless
+            print "Socket error '{}' during shutdown".format(e)
     context['ssl_socket'].close()
 
 def ssl_request(ip, port, request_bytes,
