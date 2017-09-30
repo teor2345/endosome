@@ -11,8 +11,21 @@ It doesn't keep your traffic private: use a real Tor client for that.
 
 ## Dependencies
 
-If your python version doesn't come with the ipaddress module, install it using
-pip or similar.
+endosome requires the following libraries:
+* cryptography (any version)
+  * endosome has code for ntor's hkdf_sha256, but ntor isn't implemented yet
+* ipaddress (if your python version doesn't have it already)
+
+### Installation
+
+Use the following commands to install the dependencies for endosome:
+
+    virtualenv venv
+    source venv/bin/activate
+    pip install -r requirements.txt
+    deactivate
+
+### Test Environment
 
 endosome was tested on macOS 10.12 with python 2.7 and OpenSSL 1.0.2.
 
