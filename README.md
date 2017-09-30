@@ -47,7 +47,8 @@ Scripts with the same basename do the same thing in different languages.
 
 The scripts can be run in any order.
 
-Here they are in increasing order of functionality and abstraction:
+Basic scripts are listed first.
+Later scripts do more, or use more advanced functions.
 
 DirPort:
 * client-dir.{sh,py} (DirPort)
