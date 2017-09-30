@@ -86,3 +86,10 @@ def get_random_bytes(random_len):
     result = os.urandom(random_len)
     assert len(result) == random_len
     return bytearray(result)
+
+def to_bytes(data):
+    '''
+    Transform data into bytes that will be accepted by any ipaddress version.
+    '''
+    # Yes, this is a sleazy hack
+    return bytes(bytearray(data))

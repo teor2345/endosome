@@ -612,11 +612,11 @@ def unpack_ip_address_bytes(data_bytes, addr_type):
     if addr_type == IPV4_ADDRESS_TYPE:
         assert addr_len == IPV4_ADDRESS_LEN
         (addr_bytes, remaining_bytes) = split_field(addr_len, data_bytes)
-        addr_value = ipaddress.IPv4Address(bytearray(addr_bytes))
+        addr_value = ipaddress.IPv4Address(to_bytes(addr_bytes))
     elif addr_type == IPV6_ADDRESS_TYPE:
         assert addr_len == IPV6_ADDRESS_LEN
         (addr_bytes, remaining_bytes) = split_field(addr_len, data_bytes)
-        addr_value = ipaddress.IPv6Address(bytearray(addr_bytes))
+        addr_value = ipaddress.IPv6Address(to_bytes(addr_bytes))
     else:
         raise ValueError('Unexpected address type: {}'.format(addr_type))
     return (str(addr_value), remaining_bytes)
