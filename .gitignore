@@ -1,2 +1,3 @@
 **/tor.pid
 venv
+*.pyc
