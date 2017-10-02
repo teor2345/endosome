@@ -217,6 +217,21 @@ def get_max_valid_circ_id(link_version):
     '''
     return get_pack_max(get_cell_circ_id_len(link_version))
 
+def get_min_valid_stream_id():
+    '''
+    Get the minimum valid stream id.
+    See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n1335
+    '''
+    # any non-zero stream id is ok
+    return 0x0001
+
+def get_max_valid_stream_id():
+    '''
+    Get the maximum valid stream id.
+    See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n1288
+    '''
+    return get_pack_max(STREAM_ID_LEN)
+
 def pack_cell_header(cell_command_string, link_version=None, circ_id=None,
                      payload_len=None):
     '''

@@ -14,9 +14,9 @@ def get_circuit_context(context):
     '''
     Return the circuit context in context.
     '''
+    context = get_circuit_or_link_context(context)
     # If it doesn't have a link, it's not a circuit context
     assert 'link' in context
-    # TODO: extract circuit contexts from stream contexts
     return context
 
 def get_circuit_or_link_context(context):
@@ -24,7 +24,10 @@ def get_circuit_or_link_context(context):
     Return a circuit or link context from context, preferring a circuit
     context if possible.
     '''
-    # TODO: extract circuit contexts from stream contexts
+    if 'circuit' in context:
+        # Each circuit can have multiple streams. Find the underlying circuit.
+        context = context['circuit']
+    assert 'link' in context or 'tcp_socket' in context
     return context
 
 def circuit_get_crypt_context(context,
@@ -561,6 +564,3 @@ def circuit_request_cell(link_context,
                         max_response_len=max_response_len,
                         validate=validate,
                         do_shutdown=do_shutdown)
-
-# TODO: open streams
-# TODO: automatically allocate unused stream ids

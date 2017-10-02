@@ -14,15 +14,16 @@ def get_connect_context(context):
     '''
     Return the connect context in context, which can be any kind of context.
     '''
-    # TODO: extract connect contexts from stream contexts
+    # Duplicated from get_circuit_context(), there's a layering issue here
+    if 'circuit' in context:
+        # Each circuit can have multiple streams. Find the underlying circuit.
+        context = context['circuit']
     if 'link' in context:
         # Each link can have multiple circuits. Find the underlying link.
         context = context['link']
-    else:
-        # TCP, SSL, and link contexts are equivalent.
-        # Each TCP connection has 0..1 SSL connections, which has 0..1 Tor
-        # links.
-        pass
+    # TCP, SSL, and link contexts are equivalent.
+    # Each TCP connection has 0..1 SSL connections, which has 0..1 Tor
+    # links.
     # Every link context must have a TCP socket
     assert 'tcp_socket' in context
     return context

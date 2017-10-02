@@ -11,4 +11,5 @@ from crypto import *
 from cell import *
 from link import *
 from circuit import *
+from stream import *
 from format import *
