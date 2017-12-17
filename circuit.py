@@ -65,7 +65,7 @@ def circuit_set_crypt_context(context,
 
 def get_circuits(context):
     '''
-    Return the circuits from context.
+    Return the circuits from context, which can be any kind of context.
     If context does not have circuits, return an empty dict.
     '''
     link_context = get_link_context(context)
@@ -87,6 +87,7 @@ def get_unused_circ_id(context, is_initiator_flag=True,
     link_version = get_link_version(link_context, force_link_version)
     circ_id = get_min_valid_circ_id(link_version,
                                     is_initiator_flag=is_initiator_flag)
+    # a randomised selection algorithm would be faster but more complex
     while is_circ_id_used(link_context, circ_id):
         circ_id += 1
         assert circ_id < get_max_valid_circ_id(link_version)
