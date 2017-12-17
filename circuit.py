@@ -73,7 +73,10 @@ def is_circ_id_used(context, circ_id):
     Returns True if circ_id is used in context, and False if it is not.
     '''
     link_context = get_link_context(context)
-    return circ_id in get_circuits(link_context)
+    is_used = circ_id in get_circuits(link_context)
+    if is_used:
+        assert get_circuits(link_context)[circ_id]['link'] == link_context
+    return is_used
 
 def get_unused_circ_id(context, is_initiator_flag=True,
                        force_link_version=None):
@@ -114,6 +117,7 @@ def remove_circuit_context(link_context, circuit_context):
     circ_id = circuit_context['circ_id']
     assert is_circ_id_used(link_context, circ_id)
     del link_context['circuits'][circ_id]
+    del circuit_context['link']
     assert not is_circ_id_used(link_context, circ_id)
 
 # See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n997
