@@ -615,15 +615,23 @@ def unpack_ip_address_bytes(data_bytes, addr_type):
         # Some ipaddress variants demand bytearray, others demand bytes
         try:
             addr_value = ipaddress.IPv4Address(bytearray(addr_bytes))
+            return (str(addr_value), remaining_bytes)
         except ipaddress.AddressValueError:
-            addr_value = ipaddress.IPv4Address(bytes(addr_bytes))
+            pass
+        except UnicodeDecodeError:
+            pass
+        addr_value = ipaddress.IPv4Address(bytes(addr_bytes))
     elif addr_type == IPV6_ADDRESS_TYPE:
         assert addr_len == IPV6_ADDRESS_LEN
         (addr_bytes, remaining_bytes) = split_field(addr_len, data_bytes)
         try:
             addr_value = ipaddress.IPv6Address(bytearray(addr_bytes))
+            return (str(addr_value), remaining_bytes)
         except ipaddress.AddressValueError:
-            addr_value = ipaddress.IPv6Address(bytes(addr_bytes))
+            pass
+        except UnicodeDecodeError:
+            pass
+        addr_value = ipaddress.IPv6Address(bytes(addr_bytes))
     else:
         raise ValueError('Unexpected address type: {}'.format(addr_type))
     return (str(addr_value), remaining_bytes)
