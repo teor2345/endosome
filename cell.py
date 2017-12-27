@@ -745,7 +745,7 @@ def unpack_netinfo_payload(payload_len, payload_bytes,
         (sender_ip_string, temp_bytes) = unpack_address(temp_bytes)
         sender_ip_list.append(sender_ip_string)
         i += 1
-        assert len(sender_ip_list) == sender_ip_count
+    assert len(sender_ip_list) == sender_ip_count
     # and construct the result
     return {
         'sender_timestamp'   : sender_timestamp,
