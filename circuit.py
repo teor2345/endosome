@@ -117,7 +117,8 @@ def remove_circuit_context(link_context, circuit_context):
     circ_id = circuit_context['circ_id']
     assert is_circ_id_used(link_context, circ_id)
     del link_context['circuits'][circ_id]
-    del circuit_context['link']
+    # we can't delete this, because decryption relies on it
+    #del circuit_context['link']
     assert not is_circ_id_used(link_context, circ_id)
 
 # See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n997
