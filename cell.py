@@ -1339,10 +1339,10 @@ def unpack_relay_payload(crypt_len,
                                  force_recognized_bytes=recognized_bytes)
     hop_hash_context = hash_update(hop_hash_context,
                                    payload_zero_digest_bytes,
-                                   make_context_reusable=False)
+                                   make_context_reusable=True)
     expected_relay_digest_bytes = hash_extract(hop_hash_context,
                                                RELAY_DIGEST_LEN,
-                                               make_context_reusable=False)
+                                               make_context_reusable=True)
     if validate:
         # check the cell was decoded correctly
         assert (expected_relay_digest_bytes ==
