@@ -14,5 +14,6 @@ TOR=${TOR:-tor}
 "$TOR" PublishServerDescriptor 0 AssumeReachable 1 ExitRelay 0 \
        ProtocolWarnings 1 SafeLogging 0 LogTimeGranularity 1 \
        PidFile tor.pid SOCKSPort 0 \
+       ContactInfo "endosome@example.com" \
        Log "$LOG_LEVEL stderr" DataDirectory `mktemp -d` \
        ORPort "$ORPORT" DirPort "$DIRPORT" "$@"
