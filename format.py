@@ -46,7 +46,8 @@ def format_cells(data_bytes, link_version_list=[3,4,5],
                     # Just assume any zeroes at the end are padding
                     data_bytes = data_bytes.rstrip('\0')
                 output_bytes = data_bytes if skip_zero_padding else cell[key]
-                result += '{} : {}\n'.format(key,
+                result += '{} : "{}"\n'.format(key, output_bytes)
+                result += '{}_hex : {}\n'.format(key,
                                              binascii.hexlify(output_bytes))
                 if (not is_var_cell_flag and (key == 'cell_bytes' or
                                               key == 'payload_bytes')):
