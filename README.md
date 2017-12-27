@@ -71,6 +71,9 @@ Tor Circuits:
 * client-or-circuit-drop.py (Open circuits and send DROP cells)
 * client-or-circuit-begindir.py (Open circuits and send BEGINDIR cells)
 
+Tor Streams:
+* client-or-stream-raw.py (Open circuits, send BEGINDIR, and make a request)
+
 The other scripts are designed to clarify ambiguities in the tor specification.
 They are named after the corresponding tor trac ticket number.
 
