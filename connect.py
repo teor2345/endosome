@@ -8,6 +8,8 @@
 import socket
 import ssl
 
+import stem.socket
+
 MAX_READ_BUFFER_LEN = 10*1024*1024
 
 def get_connect_context(context):
@@ -33,9 +35,8 @@ def tcp_open(ip, port):
     Returns a context dictionary required to continue the connection:
         'tcp_socket'  : a TCP socket connected to ip and port
     '''
-    tcp_socket = socket.create_connection((ip, port))
     return {
-        'tcp_socket' : tcp_socket,
+        'tcp_socket' : stem.socket.RelaySocket(ip, port),
         }
 
 def tcp_write(context, request_bytes):
@@ -43,7 +44,7 @@ def tcp_write(context, request_bytes):
     Send a TCP request to the tcp_socket in context.
     '''
     context = get_connect_context(context)
-    context['tcp_socket'].sendall(request_bytes)
+    context['tcp_socket'].send(request_bytes)
 
 def tcp_read(context, max_response_len=MAX_READ_BUFFER_LEN):
     '''
@@ -60,12 +61,6 @@ def tcp_close(context, do_shutdown=True):
     rather than waiting for the system to potentially clear buffers.
     '''
     context = get_connect_context(context)
-    if do_shutdown:
-        try:
-            context['tcp_socket'].shutdown(socket.SHUT_RDWR)
-        except socket.error as e:
-            # A "Socket is not connected" error here is harmless
-            print "Socket error '{}' during shutdown".format(e)
     context['tcp_socket'].close()
 
 def tcp_request(ip, port, request_bytes,
@@ -94,7 +89,7 @@ def ssl_open(ip, port):
     '''
     context = tcp_open(ip, port)
     # TODO: verify server certificates
-    ssl_socket = ssl.wrap_socket(context['tcp_socket'])
+    ssl_socket = ssl.wrap_socket(context['tcp_socket']._socket)
     context.update({
             'ssl_socket' : ssl_socket
             })
