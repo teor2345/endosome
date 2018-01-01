@@ -245,27 +245,3 @@ def link_request_cell_list(ip, port,
                                             max_response_len=max_response_len)
     link_close(context, do_shutdown)
     return (context, response_cell_bytes)
-
-def link_request_cell(ip, port,
-                      cell_command_string, circ_id=None, payload_bytes=None,
-                      link_version_list=[3,4,5], force_link_version=None,
-                      send_netinfo=True, sender_timestamp=None,
-                      sender_ip_list=None,
-                      max_response_len=MAX_READ_BUFFER_LEN,
-                      do_shutdown=True):
-    '''
-    Send a Tor cell with cell_command_string, circ_id, and payload.
-    See link_request_cell_list() for details.
-    '''
-    cell = link_make_cell(cell_command_string, circ_id=circ_id,
-                          payload_bytes=payload_bytes,
-                          force_link_version=force_link_version)
-    return link_request_cell_list(ip, port,
-                                  [cell],
-                                  link_version_list=link_version_list,
-                                  force_link_version=force_link_version,
-                                  send_netinfo=send_netinfo,
-                                  sender_timestamp=sender_timestamp,
-                                  sender_ip_list=sender_ip_list,
-                                  max_response_len=max_response_len,
-                                  do_shutdown=do_shutdown)
