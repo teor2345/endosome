@@ -13,8 +13,6 @@ from endosome import *
 RELAYIP = '127.0.0.1'
 ORPORT = 12345
 
-MAX_RESPONSE_LEN = 10*1024*1024
-
 # Request:
 # VERSIONS * 2
 # Expected Response:
@@ -25,7 +23,7 @@ REQUEST  = pack_versions_cell(version_list) * 2
 
 print 'SSL Server: {}:{}'.format(RELAYIP, ORPORT)
 print '\nRequest Cells:\n{}'.format(format_cells(REQUEST, version_list))
-response = ssl_request(RELAYIP, ORPORT, REQUEST, MAX_RESPONSE_LEN)
+response = ssl_request(RELAYIP, ORPORT, REQUEST)
 print 'Response Cells:\n{}'.format(format_cells(response, version_list))
 
 # The relay also logs:
@@ -38,7 +36,7 @@ REQUEST += pack_versions_cell(version_list, force_link_version=version_list[0])
 
 print 'SSL Server: {}:{}'.format(RELAYIP, ORPORT)
 print '\nRequest Cells:\n{}'.format(format_cells(REQUEST, version_list))
-response = ssl_request(RELAYIP, ORPORT, REQUEST, MAX_RESPONSE_LEN)
+response = ssl_request(RELAYIP, ORPORT, REQUEST)
 print 'Response Cells:\n{}'.format(format_cells(response, version_list))
 
 # The relay also logs:
@@ -51,7 +49,7 @@ REQUEST  = pack_versions_cell(version_list)*2
 print 'SSL Server: {}:{}'.format(RELAYIP, ORPORT)
 # Parsing the second versions cell fails because its circuit id length is wrong
 #print '\nRequest Cells:\n{}'.format(format_cells(REQUEST, version_list))
-response = ssl_request(RELAYIP, ORPORT, REQUEST, MAX_RESPONSE_LEN)
+response = ssl_request(RELAYIP, ORPORT, REQUEST)
 print 'Response Cells:\n{}'.format(format_cells(response, version_list))
 
 # The second versions cell looks like some other kind of cell to the relay,

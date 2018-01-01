@@ -13,8 +13,6 @@ from endosome import *
 RELAYIP = '127.0.0.1'
 ORPORT = 12345
 
-MAX_RESPONSE_LEN = 10*1024*1024
-
 # Request:
 # PADDING, VERSIONS
 # Expected Response:
@@ -26,7 +24,7 @@ REQUEST += pack_versions_cell(version_list)
 
 print 'SSL Server: {}:{}'.format(RELAYIP, ORPORT)
 print '\nRequest Cells:\n{}'.format(format_cells(REQUEST, version_list))
-response = ssl_request(RELAYIP, ORPORT, REQUEST, MAX_RESPONSE_LEN)
+response = ssl_request(RELAYIP, ORPORT, REQUEST)
 print 'Response Cells:\n{}'.format(format_cells(response, version_list))
 
 # The relay fails to respond, and logs:
@@ -47,7 +45,7 @@ REQUEST += pack_versions_cell(version_list)
 
 print 'SSL Server: {}:{}'.format(RELAYIP, ORPORT)
 print '\nRequest Cells:\n{}'.format(format_cells(REQUEST, version_list))
-response = ssl_request(RELAYIP, ORPORT, REQUEST, MAX_RESPONSE_LEN)
+response = ssl_request(RELAYIP, ORPORT, REQUEST)
 print 'Response Cells:\n{}'.format(format_cells(response, version_list))
 
 # Standard response
@@ -64,7 +62,7 @@ REQUEST += pack_versions_cell(version_list)
 
 print 'SSL Server: {}:{}'.format(RELAYIP, ORPORT)
 print '\nRequest Cells:\n{}'.format(format_cells(REQUEST, version_list))
-response = ssl_request(RELAYIP, ORPORT, REQUEST, MAX_RESPONSE_LEN)
+response = ssl_request(RELAYIP, ORPORT, REQUEST)
 print 'Response Cells:\n{}'.format(format_cells(response, version_list))
 
 # The relay fails to respond, and logs:

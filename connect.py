@@ -69,15 +69,9 @@ def ssl_close(context):
     context = get_connect_context(context)
     context['ssl_socket'].close()
 
-def ssl_request(ip, port, request_bytes,
-                max_response_len=MAX_READ_BUFFER_LEN):
+def ssl_request(ip, port, request_bytes):
     '''
-    Send a SSL request to ip and port, and return at most max_response_len
-    bytes of the response. If do_shutdown is True, shut down the socket
-    immediately after reading the response.
-    Unless you're using a *very* weird version of OpenSSL, this makes
-    a Tor link version 3 or later connection.
-    See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n226
+    Send an SSL request and receive its reply.
     '''
 
     my_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -85,7 +79,7 @@ def ssl_request(ip, port, request_bytes,
     ssl_socket = ssl.wrap_socket(my_socket)
 
     ssl_socket.sendall(request_bytes)
-    response = ssl_socket.recv(max_response_len)
+    response = ssl_socket.recv(MAX_READ_BUFFER_LEN)
 
     ssl_socket.close()
 

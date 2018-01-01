@@ -13,8 +13,6 @@ from endosome import *
 RELAYIP = '127.0.0.1'
 ORPORT = 12345
 
-MAX_RESPONSE_LEN = 10*1024*1024
-
 # Request:
 # VERSIONS: CircID(2)=None CommandCode=VERSIONS PayloadLength=2
 #           SupportedVersionList=3,4,5
@@ -38,6 +36,6 @@ REQUEST = pack_versions_cell()
 print 'SSL Server: {}:{}'.format(RELAYIP, ORPORT)
 #print '\nRequest Bytes:\n{}'.format(binascii.hexlify(REQUEST))
 print '\nRequest Cells:\n{}'.format(format_cells(REQUEST))
-response = ssl_request(RELAYIP, ORPORT, REQUEST, MAX_RESPONSE_LEN)
+response = ssl_request(RELAYIP, ORPORT, REQUEST)
 #print '\nResponse Bytes:\n{}'.format(binascii.hexlify(response))
 print 'Response Cells:\n{}'.format(format_cells(response))
