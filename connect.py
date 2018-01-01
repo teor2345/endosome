@@ -8,8 +8,6 @@
 import socket
 import ssl
 
-import stem.socket
-
 MAX_READ_BUFFER_LEN = 10*1024*1024
 
 def get_connect_context(context):
@@ -27,23 +25,6 @@ def get_connect_context(context):
         pass
 
     return context
-
-def ssl_open(ip, port):
-    '''
-    Open a SSL connection to ip and port.
-    Doesn't verify server certificates.
-    Returns a context dictionary required to continue the connection:
-        'ssl_socket'  : a SSL-wrapped TCP socket connected to ip and port
-        'tcp_socket'  : a TCP socket connected to ip and port
-    Unless you're using a *very* weird version of OpenSSL, this initiates
-    a Tor link version 3 or later connection.
-    See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n226
-    '''
-
-    # TODO: verify server certificates
-    ssl_socket = stem.socket.RelaySocket(ip, port)
-
-    return {'ssl_socket' : ssl_socket}
 
 def ssl_write(context, request_bytes):
     '''

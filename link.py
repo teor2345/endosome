@@ -7,6 +7,8 @@
 
 import binascii
 
+import stem.socket
+
 from connect import *
 from cell import *
 
@@ -75,7 +77,7 @@ def link_open(ip, port,
     a Tor link version 3 or later connection.
     See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n226
     '''
-    context = ssl_open(ip, port)
+    context = {'ssl_socket' : stem.socket.RelaySocket(ip, port)}
     versions_cell_bytes = pack_versions_cell(link_version_list)
     open_sent_cell_bytes = versions_cell_bytes
     ssl_write(context, versions_cell_bytes)
