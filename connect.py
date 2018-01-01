@@ -5,6 +5,9 @@
 
 # TCP and SSL connection functions
 
+import socket
+import ssl
+
 import stem.socket
 
 MAX_READ_BUFFER_LEN = 10*1024*1024
@@ -77,6 +80,13 @@ def ssl_request(ip, port, request_bytes,
     See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n226
     '''
 
-    with stem.socket.RelaySocket(ip, port) as ssl_socket:
-      ssl_socket.send(request_bytes)
-      return ssl_socket.recv(max_response_len)
+    my_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    my_socket.connect((ip, port))
+    ssl_socket = ssl.wrap_socket(my_socket)
+
+    ssl_socket.sendall(request_bytes)
+    response = ssl_socket.recv(max_response_len)
+
+    ssl_socket.close()
+
+    return response
