@@ -25,56 +25,8 @@ def get_connect_context(context):
         # Each TCP connection has 0..1 SSL connections, which has 0..1 Tor
         # links.
         pass
-    # Every link context must have a TCP socket
-    assert 'tcp_socket' in context
+
     return context
-
-def tcp_open(ip, port):
-    '''
-    Send a TCP request to ip and port.
-    Returns a context dictionary required to continue the connection:
-        'tcp_socket'  : a TCP socket connected to ip and port
-    '''
-    return {
-        'tcp_socket' : stem.socket.RelaySocket(ip, port),
-        }
-
-def tcp_write(context, request_bytes):
-    '''
-    Send a TCP request to the tcp_socket in context.
-    '''
-    context = get_connect_context(context)
-    context['tcp_socket'].send(request_bytes)
-
-def tcp_read(context, max_response_len=MAX_READ_BUFFER_LEN):
-    '''
-    Reads and returns at most max_response_len bytes from the tcp_socket in
-    context.
-    '''
-    context = get_connect_context(context)
-    return bytearray(context['tcp_socket'].recv(max_response_len))
-
-def tcp_close(context, do_shutdown=True):
-    '''
-    Closes the tcp_socket in context.
-    If do_shutdown is True, shut down communication on the socket immediately,
-    rather than waiting for the system to potentially clear buffers.
-    '''
-    context = get_connect_context(context)
-    context['tcp_socket'].close()
-
-def tcp_request(ip, port, request_bytes,
-                max_response_len=MAX_READ_BUFFER_LEN, do_shutdown=True):
-    '''
-    Send a TCP request to ip and port, and return at most max_response_len
-    bytes of the response. If do_shutdown is True, shut down the socket
-    immediately after reading the response.
-    '''
-    context = tcp_open(ip, port)
-    tcp_write(context, request_bytes)
-    response_bytes = tcp_read(context, max_response_len)
-    tcp_close(context, do_shutdown)
-    return response_bytes
 
 def ssl_open(ip, port):
     '''
@@ -87,13 +39,12 @@ def ssl_open(ip, port):
     a Tor link version 3 or later connection.
     See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n226
     '''
-    context = tcp_open(ip, port)
+
+    tcp_socket = stem.socket.RelaySocket(ip, port)
     # TODO: verify server certificates
-    ssl_socket = ssl.wrap_socket(context['tcp_socket']._socket)
-    context.update({
-            'ssl_socket' : ssl_socket
-            })
-    return context
+    ssl_socket = ssl.wrap_socket(tcp_socket._socket)
+
+    return {'ssl_socket' : ssl_socket}
 
 def ssl_write(context, request_bytes):
     '''
