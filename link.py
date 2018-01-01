@@ -10,20 +10,13 @@ import binascii
 from connect import *
 from cell import *
 
-def get_link_context(context):
-    '''
-    Return the link context in context, which can be any kind of context.
-    '''
-    # These are equivalent, see the note in get_connect_context()
-    return get_connect_context(context)
-
 def get_link_version(context, force_link_version=None):
     '''
     Return force_link_version, if it is not None, or the link version from
     context.
     If both are None, or context does not have a link version, return None.
     '''
-    context = get_link_context(context)
+    context = get_connect_context(context)
     if force_link_version is not None:
         return force_link_version
     return context.get('link_version')
@@ -35,7 +28,7 @@ def get_link_version_list(context, force_link_version=None):
     If both are None, or context does not have a link version, return an empty
     list.
     '''
-    context = get_link_context(context)
+    context = get_connect_context(context)
     if force_link_version is not None:
         return [force_link_version]
     return context.get('link_version_list', [])
@@ -46,7 +39,7 @@ def unpack_cells_link(context, data_bytes,
     Call unpack_cells() with the appropriate values from the context,
     and return its result.
     '''
-    context = get_link_context(context)
+    context = get_connect_context(context)
     link_version = get_link_version(context,
                                     force_link_version=force_link_version)
     link_version_list = get_link_version_list(context,
@@ -127,7 +120,7 @@ def link_pack_cell(context,
         force_payload_len   : overrides len(payload_bytes) (optional)
     Returns the cell bytes.
     '''
-    context = get_link_context(context)
+    context = get_connect_context(context)
     cell_bytes = bytearray()
     link_version = get_link_version(context, force_link_version)
     cell_link_version = cell.get('force_link_version', link_version)
@@ -149,7 +142,7 @@ def link_write_cell_list(context,
     Each dict in cell_list is as in link_pack_cell().
     Returns the cell bytes sent on the wire.
     '''
-    context = get_link_context(context)
+    context = get_connect_context(context)
     cell_bytes = bytearray()
     link_version = get_link_version(context, force_link_version)
     for cell in cell_list:
@@ -187,7 +180,7 @@ def link_write_cell(context,
     Returns the cell bytes sent on the wire.
     See link_write_cell_list() for details.
     '''
-    context = get_link_context(context)
+    context = get_connect_context(context)
     cell = link_make_cell(cell_command_string,
                           circ_id=circ_id,
                           force_link_version=force_link_version,
@@ -203,7 +196,7 @@ def link_read_cell_bytes(context,
     context.
     Returns the cell bytes received.
     '''
-    context = get_link_context(context)
+    context = get_connect_context(context)
     received_bytes = ssl_read(context, max_response_len)
     return received_bytes
 
@@ -215,7 +208,7 @@ def link_close(context,
     rather than waiting for the system to potentially clear buffers.
     '''
     # There is no Tor cell command for closing a link
-    context = get_link_context(context)
+    context = get_connect_context(context)
     ssl_close(context, do_shutdown)
 
 def link_request_cell_list(ip, port,

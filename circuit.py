@@ -65,14 +65,14 @@ def get_circuits(context):
     Return the circuits from context, which can be any kind of context.
     If context does not have circuits, return an empty dict.
     '''
-    link_context = get_link_context(context)
+    link_context = get_connect_context(context)
     return link_context.get('circuits', {})
 
 def is_circ_id_used(context, circ_id):
     '''
     Returns True if circ_id is used in context, and False if it is not.
     '''
-    link_context = get_link_context(context)
+    link_context = get_connect_context(context)
     is_used = circ_id in get_circuits(link_context)
     if is_used:
         assert get_circuits(link_context)[circ_id]['link'] == link_context
@@ -83,7 +83,7 @@ def get_unused_circ_id(context, is_initiator_flag=True,
     '''
     Returns the first valid, unused circ_id in context.
     '''
-    link_context = get_link_context(context)
+    link_context = get_connect_context(context)
     link_version = get_link_version(link_context, force_link_version)
     circ_id = get_min_valid_circ_id(link_version,
                                     is_initiator_flag=is_initiator_flag)
@@ -97,7 +97,7 @@ def add_circuit_context(link_context, circuit_context):
     '''
     Add circuit_context to link_context.
     '''
-    link_context = get_link_context(link_context)
+    link_context = get_connect_context(link_context)
     circuit_context = get_circuit_context(circuit_context)
     # This creates a circular reference, which modern python GCs can handle
     circ_id = circuit_context['circ_id']
@@ -111,7 +111,7 @@ def remove_circuit_context(link_context, circuit_context):
     '''
     Remove circuit_context from link_context.
     '''
-    link_context = get_link_context(link_context)
+    link_context = get_connect_context(link_context)
     circuit_context = get_circuit_context(circuit_context)
     # This breaks the circular dependency created by add_circuit_context()
     circ_id = circuit_context['circ_id']
@@ -167,7 +167,7 @@ def circuit_create(link_context,
                                link, keyed by circuit id
        'circuits'/circ_id    : the circuit context for this circuit
     '''
-    link_context = get_link_context(link_context)
+    link_context = get_connect_context(link_context)
     # choose an unused circuit id, not just the lowest one
     if circ_id is None:
         circ_id = get_unused_circ_id(link_context, is_initiator_flag=True,
@@ -461,7 +461,7 @@ def circuit_read_cell_bytes(context,
     Returns the cell bytes received.
     (Cell parsing functionality is in format_cell_bytes().)
     '''
-    link_context = get_link_context(context)
+    link_context = get_connect_context(context)
     return link_read_cell_bytes(link_context,
                                 max_response_len=max_response_len)
 
@@ -474,7 +474,7 @@ def circuit_close(context,
     Returns the result of link_write_cell().
     '''
     circuit_context = get_circuit_context(context)
-    link_context = get_link_context(context)
+    link_context = get_connect_context(context)
     destroy_circ_id = circuit_context['circ_id']
     cell_bytes = link_write_cell(link_context,
                                  'DESTROY',
@@ -503,7 +503,7 @@ def circuit_request_cell_list(link_context,
     the crypted sent cells bytes, the plaintext sent cells bytes, and the
     (crypted) response cell(s) bytes.
     '''
-    link_context = get_link_context(link_context)
+    link_context = get_connect_context(link_context)
     circuit_context = circuit_create(link_context,
                          create_cell_command_string=create_cell_command_string,
                          circ_id=circ_id,
@@ -548,7 +548,7 @@ def circuit_request_cell(link_context,
     Send a Tor cell on a new circuit on link_context.
     See circuit_request_cell_list() for details.
     '''
-    link_context = get_link_context(link_context)
+    link_context = get_connect_context(link_context)
     cell = circuit_make_relay_cell(cell_command_string,
                             relay_command_string,
                             circ_id=circ_id,
