@@ -5,9 +5,6 @@
 
 # TCP and SSL connection functions
 
-import socket
-import ssl
-
 import stem.socket
 
 MAX_READ_BUFFER_LEN = 10*1024*1024
@@ -40,9 +37,8 @@ def ssl_open(ip, port):
     See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n226
     '''
 
-    tcp_socket = stem.socket.RelaySocket(ip, port)
     # TODO: verify server certificates
-    ssl_socket = ssl.wrap_socket(tcp_socket._socket)
+    ssl_socket = stem.socket.RelaySocket(ip, port)
 
     return {'ssl_socket' : ssl_socket}
 
@@ -51,7 +47,7 @@ def ssl_write(context, request_bytes):
     Send a SSL request to the ssl_socket in context.
     '''
     context = get_connect_context(context)
-    context['ssl_socket'].sendall(request_bytes)
+    context['ssl_socket'].send(request_bytes)
 
 def ssl_read(context, max_response_len=MAX_READ_BUFFER_LEN):
     '''
@@ -68,12 +64,6 @@ def ssl_close(context, do_shutdown=True):
     rather than waiting for the system to potentially clear buffers.
     '''
     context = get_connect_context(context)
-    if do_shutdown:
-        try:
-            context['ssl_socket'].shutdown(socket.SHUT_RDWR)
-        except socket.error as e:
-            # A "Socket is not connected" error here is harmless
-            print "Socket error '{}' during shutdown".format(e)
     context['ssl_socket'].close()
 
 def ssl_request(ip, port, request_bytes,
@@ -86,8 +76,7 @@ def ssl_request(ip, port, request_bytes,
     a Tor link version 3 or later connection.
     See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n226
     '''
-    context = ssl_open(ip, port)
-    ssl_write(context, request_bytes)
-    response_bytes = ssl_read(context, max_response_len)
-    ssl_close(context, do_shutdown)
-    return response_bytes
+
+    with stem.socket.RelaySocket(ip, port) as ssl_socket:
+      ssl_socket.send(request_bytes)
+      return ssl_socket.recv(max_response_len)
