@@ -52,13 +52,12 @@ def ssl_write(context, request_bytes):
     context = get_connect_context(context)
     context['ssl_socket'].send(request_bytes)
 
-def ssl_read(context, max_response_len=MAX_READ_BUFFER_LEN):
+def ssl_read(context):
     '''
-    Reads and returns at most max_response_len bytes from the ssl_socket in
-    context.
+    Reads bytes from the ssl_socket in context.
     '''
     context = get_connect_context(context)
-    return bytearray(context['ssl_socket'].recv(max_response_len))
+    return bytearray(context['ssl_socket'].recv())
 
 def ssl_close(context):
     '''

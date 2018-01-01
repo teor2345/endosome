@@ -133,7 +133,6 @@ def circuit_create(link_context,
                    create_cell_command_string='CREATE_FAST',
                    circ_id=None,
                    force_link_version=None,
-                   max_response_len=MAX_READ_BUFFER_LEN,
                    validate=True):
     '''
     Create a single-hop circuit using create_cell_command_string with circ_id,
@@ -144,8 +143,7 @@ def circuit_create(link_context,
     If validate is true, check that that the remote KH matches the expected
     value.
 
-    Read up to max_response_len in response, and returns a context dictionary
-    required to continue using the circuit:
+    Returns a context dictionary required to continue using the circuit:
         'circ_id'            : the circuit id for this circuit
         'link'               : the link context for this circuit
     And the first hop request (TODO: put these in a different structure):
@@ -198,8 +196,7 @@ def circuit_create(link_context,
 
     # Read and parse the response
     # You will hang here if you send a duplicate circuit ID
-    created_cell_bytes = link_read_cell_bytes(link_context,
-                                           max_response_len=max_response_len)
+    created_cell_bytes = link_read_cell_bytes(link_context)
     (_, cell_list) = unpack_cells_link(link_context, created_cell_bytes,
                                        force_link_version=force_link_version)
     # Now find the created cell
@@ -453,17 +450,14 @@ def circuit_write_cell(context,
     # The force_* arguments are redundant here
     return circuit_write_cell_list(context, [cell])
 
-def circuit_read_cell_bytes(context,
-                            max_response_len=MAX_READ_BUFFER_LEN):
+def circuit_read_cell_bytes(context):
     '''
-    Reads and returns at most max_response_len bytes from the ssl_socket in
-    circuit_context.
+    Reads bytes from the ssl_socket in circuit_context.
     Returns the cell bytes received.
     (Cell parsing functionality is in format_cell_bytes().)
     '''
     link_context = get_connect_context(context)
-    return link_read_cell_bytes(link_context,
-                                max_response_len=max_response_len)
+    return link_read_cell_bytes(link_context)
 
 def circuit_close(context,
                   force_link_version=None,
@@ -491,13 +485,12 @@ def circuit_request_cell_list(link_context,
                               create_cell_command_string='CREATE_FAST',
                               circ_id=None,
                               force_link_version=None,
-                              max_response_len=MAX_READ_BUFFER_LEN,
                               validate=True,
                               do_shutdown=True):
     '''
     Send the Tor cells in cell_list on a newly created circuit on link_context,
     (force_link_version overrides the negotiated link_version),
-    and read at most max_response_len bytes of response cells.
+    and read bytes of response cells.
     If do_shutdown is true, send a DESTROY cell to shut down the circuit.
     Returns a tuple containing the modified link context, the circuit context,
     the crypted sent cells bytes, the plaintext sent cells bytes, and the
@@ -508,7 +501,6 @@ def circuit_request_cell_list(link_context,
                          create_cell_command_string=create_cell_command_string,
                          circ_id=circ_id,
                          force_link_version=force_link_version,
-                         max_response_len=max_response_len,
                          validate=validate)
     (sent_cell_list,
      sent_crypt_cells_bytes,
@@ -517,8 +509,7 @@ def circuit_request_cell_list(link_context,
                                         force_link_version=force_link_version)
     response_cells_bytes = bytearray()
     if len(cell_list) > 0:
-        response_cells_bytes = circuit_read_cell_bytes(circuit_context,
-                                            max_response_len=max_response_len)
+        response_cells_bytes = circuit_read_cell_bytes(circuit_context)
     if do_shutdown:
         sent_destroy_cell_bytes = circuit_close(circuit_context,
                                         force_link_version=force_link_version)
@@ -541,7 +532,6 @@ def circuit_request_cell(link_context,
                          force_recognized_bytes=None,
                          force_digest_bytes=None,
                          create_cell_command_string='CREATE_FAST',
-                         max_response_len=MAX_READ_BUFFER_LEN,
                          validate=True,
                          do_shutdown=True):
     '''
@@ -564,7 +554,6 @@ def circuit_request_cell(link_context,
                         create_cell_command_string=create_cell_command_string,
                         circ_id=circ_id,
                         force_link_version=force_link_version,
-                        max_response_len=max_response_len,
                         validate=validate,
                         do_shutdown=do_shutdown)
 

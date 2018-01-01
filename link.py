@@ -50,8 +50,7 @@ def unpack_cells_link(context, data_bytes,
 
 def link_open(ip, port,
               link_version_list=[3,4,5], force_link_version=None,
-              send_netinfo=True, sender_timestamp=None, sender_ip_list=None,
-              max_response_len=MAX_READ_BUFFER_LEN):
+              send_netinfo=True, sender_timestamp=None, sender_ip_list=None):
     '''
     Open a link-level Tor connection to ip and port, using the highest
     link version in link_version_list supported by both sides.
@@ -61,9 +60,6 @@ def link_open(ip, port,
     is negotiated, using ip as the receiver IP address, sender_timestamp
     and sender_ip_list. NETINFO cells are required by Tor.
     See https://trac.torproject.org/projects/tor/ticket/22951
-
-    max_response_len is the maximum response size that will be read from the
-    connection while setting up the link.
 
     Returns a context dictionary required to continue the connection:
         'link_version'             : the Tor cell link version used on the link
@@ -83,7 +79,7 @@ def link_open(ip, port,
     versions_cell_bytes = pack_versions_cell(link_version_list)
     open_sent_cell_bytes = versions_cell_bytes
     ssl_write(context, versions_cell_bytes)
-    open_received_cell_bytes = ssl_read(context, max_response_len)
+    open_received_cell_bytes = ssl_read(context)
     (link_version, _) = unpack_cells(open_received_cell_bytes,
                                      link_version_list=link_version_list,
                                      force_link_version=force_link_version)
@@ -189,16 +185,13 @@ def link_write_cell(context,
     # force_* are redundant here
     return link_write_cell_list(context, [cell])
 
-def link_read_cell_bytes(context,
-                         max_response_len=MAX_READ_BUFFER_LEN):
+def link_read_cell_bytes(context):
     '''
-    Reads and returns at most max_response_len bytes from the ssl_socket in
-    context.
+    Reads and returns bytes from the ssl_socket in context.
     Returns the cell bytes received.
     '''
     context = get_connect_context(context)
-    received_bytes = ssl_read(context, max_response_len)
-    return received_bytes
+    return ssl_read(context)
 
 def link_close(context,
                do_shutdown=True):
@@ -216,12 +209,10 @@ def link_request_cell_list(ip, port,
                            link_version_list=[3,4,5], force_link_version=None,
                            send_netinfo=True, sender_timestamp=None,
                            sender_ip_list=None,
-                           max_response_len=MAX_READ_BUFFER_LEN,
                            do_shutdown=True):
     '''
     Send the Tor cells in cell_list to ip and port, using link_version_list,
-    (force_link_version overrides the negotiated link_version),
-    and read at most max_response_len bytes of response cells.
+    (force_link_version overrides the negotiated link_version).
     If do_shutdown is True, shut down the socket immediately after reading the
     response.
     Returns a tuple containing the context, and the response bytes.
@@ -234,14 +225,12 @@ def link_request_cell_list(ip, port,
                         force_link_version=force_link_version,
                         send_netinfo=send_netinfo,
                         sender_timestamp=sender_timestamp,
-                        sender_ip_list=sender_ip_list,
-                        max_response_len=max_response_len)
+                        sender_ip_list=sender_ip_list)
     link_write_cell_list(context,
                          cell_list,
                          force_link_version=force_link_version)
     response_cell_bytes = bytearray()
     if len(cell_list) > 0:
-        response_cell_bytes = link_read_cell_bytes(context,
-                                            max_response_len=max_response_len)
+        response_cell_bytes = link_read_cell_bytes(context)
     link_close(context, do_shutdown)
     return (context, response_cell_bytes)
