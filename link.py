@@ -150,9 +150,7 @@ def link_write_cell_list(context,
 
 def link_make_cell(cell_command_string,
                    circ_id=None,
-                   force_link_version=None,
-                   payload_bytes=None,
-                   force_payload_len=None):
+                   payload_bytes=None):
     '''
     Return a dictionary containing the cell contents, as in link_write_cell().
     '''
@@ -162,10 +160,6 @@ def link_make_cell(cell_command_string,
         cell['circ_id'] = circ_id
     if payload_bytes is not None:
         cell['payload_bytes'] = payload_bytes
-    if force_link_version is not None:
-        cell['force_link_version'] = force_link_version
-    if force_payload_len is not None:
-        cell['force_payload_len'] = force_payload_len
     return cell
 
 def link_write_cell(context,
