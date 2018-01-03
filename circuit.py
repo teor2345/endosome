@@ -489,42 +489,5 @@ def circuit_request_cell_list(link_context,
             sent_crypt_cells_bytes, sent_plain_cells_bytes,
             response_cells_bytes)
 
-def circuit_request_cell(link_context,
-                         relay_command_string,
-                         cell_command_string='RELAY',
-                         circ_id=None,
-                         force_link_version=None,
-                         force_payload_len=None,
-                         stream_id=None,
-                         relay_payload_bytes=None,
-                         force_relay_payload_len=None,
-                         force_recognized_bytes=None,
-                         force_digest_bytes=None,
-                         create_cell_command_string='CREATE_FAST',
-                         validate=True,
-                         do_shutdown=True):
-    '''
-    Send a Tor cell on a new circuit on link_context.
-    See circuit_request_cell_list() for details.
-    '''
-    link_context = get_connect_context(link_context)
-    cell = circuit_make_relay_cell(cell_command_string,
-                            relay_command_string,
-                            circ_id=circ_id,
-                            force_link_version=force_link_version,
-                            force_payload_len=force_payload_len,
-                            stream_id=stream_id,
-                            relay_payload_bytes=relay_payload_bytes,
-                            force_relay_payload_len=force_relay_payload_len,
-                            force_recognized_bytes=force_recognized_bytes,
-                            force_digest_bytes=force_digest_bytes)
-    return circuit_request_cell_list(link_context,
-                        [cell],
-                        create_cell_command_string=create_cell_command_string,
-                        circ_id=circ_id,
-                        force_link_version=force_link_version,
-                        validate=validate,
-                        do_shutdown=do_shutdown)
-
 # TODO: open streams
 # TODO: automatically allocate unused stream ids
