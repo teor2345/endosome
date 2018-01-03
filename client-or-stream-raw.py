@@ -18,15 +18,21 @@ MAX_RESPONSE_LEN = 10*1024*1024
 # VERSIONS, CERTS, AUTH_CHALLENGE, NETINFO, CREATED_FAST, CONNECTED, RELAY_DATA
 
 # Create the BEGINDIR cell
-begindir_cell = circuit_make_relay_cell('RELAY',
-                                        'RELAY_BEGIN_DIR',
-                                        stream_id=1)
+
+begindir_cell = {
+  'cell_command_string': 'RELAY',
+  'relay_command_string': 'RELAY_BEGIN_DIR',
+  'stream_id': 1,
+}
 
 # Create the RELAY_DATA cell
-request_cell = circuit_make_relay_cell('RELAY',
-                                       'RELAY_DATA',
-                                       stream_id=1,
-                                       relay_payload_bytes=REQUEST)
+
+request_cell = {
+  'cell_command_string': 'RELAY',
+  'relay_command_string': 'RELAY_DATA',
+  'stream_id': 1,
+  'relay_payload_bytes': REQUEST,
+}
 
 # Try the default set of link versions: we will get 4 or 5, depending on
 # the Tor version

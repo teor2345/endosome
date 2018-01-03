@@ -366,22 +366,6 @@ def circuit_write_cell_list(context,
                                         force_link_version=force_link_version)
     return (sent_cell_list, crypt_cells_bytes, plain_cells_bytes)
 
-def circuit_make_relay_cell(cell_command_string,
-                            relay_command_string,
-                            stream_id=None,
-                            relay_payload_bytes=None):
-    '''
-    Return a dictionary containing the cell contents, as in
-    circuit_write_cell(). cell_command_string must be RELAY or RELAY_EARLY.
-    '''
-    cell = link_make_cell(cell_command_string)
-    cell['relay_command_string'] = relay_command_string
-    if stream_id is not None:
-        cell['stream_id'] = stream_id
-    if relay_payload_bytes is not None:
-        cell['relay_payload_bytes'] = relay_payload_bytes
-    return cell
-
 def circuit_read_cell_bytes(context):
     '''
     Reads bytes from the ssl_socket in circuit_context.
