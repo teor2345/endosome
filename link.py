@@ -50,17 +50,14 @@ def unpack_cells_link(context, data_bytes,
                         link_version_list=link_version_list,
                         force_link_version=link_version)
 
-def link_open(ip, port,
-              link_version_list=[3,4,5], force_link_version=None,
-              send_netinfo=True, sender_timestamp=None, sender_ip_list=None):
+def link_open(ip, port, link_version_list=[3,4,5], send_netinfo=True):
     '''
     Open a link-level Tor connection to ip and port, using the highest
     link version in link_version_list supported by both sides.
-    force_link_version overrides the negotiated link_version.
 
     If send_netinfo is true, send a NETINFO cell after the link version
-    is negotiated, using ip as the receiver IP address, sender_timestamp
-    and sender_ip_list. NETINFO cells are required by Tor.
+    is negotiated, using ip as the receiver IP address.
+    NETINFO cells are required by Tor.
     See https://trac.torproject.org/projects/tor/ticket/22951
 
     Returns a context dictionary required to continue the connection:
@@ -83,16 +80,10 @@ def link_open(ip, port,
     ssl_write(context, versions_cell_bytes)
     open_received_cell_bytes = ssl_read(context)
     (link_version, _) = unpack_cells(open_received_cell_bytes,
-                                     link_version_list=link_version_list,
-                                     force_link_version=force_link_version)
-    if force_link_version:
-        link_version = force_link_version
+                                     link_version_list=link_version_list)
     # Now we know the link version, send a netinfo cell
     if send_netinfo:
-        netinfo_cell_bytes = pack_netinfo_cell(ip,
-                                             sender_timestamp=sender_timestamp,
-                                             sender_ip_list=sender_ip_list,
-                                             link_version=link_version)
+        netinfo_cell_bytes = pack_netinfo_cell(ip, link_version=link_version)
         open_sent_cell_bytes += netinfo_cell_bytes
         ssl_write(context, netinfo_cell_bytes)
         # We don't expect anything in response to our NETINFO
