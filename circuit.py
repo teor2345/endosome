@@ -312,13 +312,10 @@ def circuit_crypt_cell_payload(context,
             hop_crypt_context,
             plain_cell_bytes)
 
-def circuit_write_cell_list(context,
-                            cell_list,
-                            force_link_version=None):
+def circuit_write_cell_list(context, cell_list):
     '''
     Pack, encrypt and send the Tor cells specified by cell_list on the circuit
-    in context, using the link_version in context. force_link_version overrides
-    the link_version in context.
+    in context, using the link_version in context.
     The other arguments are as in pack_cell() and pack_relay_payload().
     An empty cell list is allowed: no cells are sent.
     Each dict in cell_list can have all the elements listed in
@@ -356,8 +353,7 @@ def circuit_write_cell_list(context,
          plain_cell_bytes) = circuit_crypt_cell_payload(context,
                                         sent_cell,
                                         hop_hash_context,
-                                        hop_crypt_context,
-                                        force_link_version=force_link_version)
+                                        hop_crypt_context)
         sent_cell_list.append(sent_cell)
         plain_cells_bytes += plain_cell_bytes
     # We already assumed we're the client
@@ -365,9 +361,7 @@ def circuit_write_cell_list(context,
                               hop_hash_context,
                               hop_crypt_context,
                               is_cell_outbound_flag=True)
-    crypt_cells_bytes = link_write_cell_list(context['link'],
-                                        sent_cell_list,
-                                        force_link_version=force_link_version)
+    crypt_cells_bytes = link_write_cell_list(context['link'], sent_cell_list)
     return (sent_cell_list, crypt_cells_bytes, plain_cells_bytes)
 
 def circuit_read_cell_bytes(context):
@@ -413,8 +407,7 @@ def circuit_request_cell_list(link_context,
     circuit_context = circuit_create(link_context)
     (sent_cell_list,
      sent_crypt_cells_bytes,
-     sent_plain_cells_bytes) = circuit_write_cell_list(circuit_context,
-                                        cell_list)
+     sent_plain_cells_bytes) = circuit_write_cell_list(circuit_context, cell_list)
     response_cells_bytes = bytearray()
     if len(cell_list) > 0:
         response_cells_bytes = circuit_read_cell_bytes(circuit_context)
