@@ -390,33 +390,18 @@ def circuit_write_cell_list(context,
 
 def circuit_make_relay_cell(cell_command_string,
                             relay_command_string,
-                            circ_id=None,
-                            force_link_version=None,
-                            force_payload_len=None,
                             stream_id=None,
-                            relay_payload_bytes=None,
-                            force_relay_payload_len=None,
-                            force_recognized_bytes=None,
-                            force_digest_bytes=None):
+                            relay_payload_bytes=None):
     '''
     Return a dictionary containing the cell contents, as in
     circuit_write_cell(). cell_command_string must be RELAY or RELAY_EARLY.
     '''
-    cell = link_make_cell(cell_command_string,
-                          circ_id=circ_id,
-                          force_link_version=force_link_version,
-                          force_payload_len=force_payload_len)
+    cell = link_make_cell(cell_command_string)
     cell['relay_command_string'] = relay_command_string
     if stream_id is not None:
         cell['stream_id'] = stream_id
     if relay_payload_bytes is not None:
         cell['relay_payload_bytes'] = relay_payload_bytes
-    if force_relay_payload_len is not None:
-        cell['force_relay_payload_len'] = force_relay_payload_len
-    if force_recognized_bytes is not None:
-        cell['force_recognized_bytes'] = force_recognized_bytes
-    if force_digest_bytes is not None:
-        cell['force_digest_bytes'] = force_digest_bytes
     return cell
 
 def circuit_read_cell_bytes(context):
