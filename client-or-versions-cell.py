@@ -31,7 +31,7 @@ ORPORT = 12345
 #          RemoteAddress=127.0.0.1 LocalAddressCount=1 LocalAddressType=IPv4
 #          LocalAddressLength=4 LocalAddress=RelayPublicIPAddress ZeroPad(491)
 
-REQUEST = pack_versions_cell()
+REQUEST = pack_versions_cell([3,4,5])
 
 print 'SSL Server: {}:{}'.format(RELAYIP, ORPORT)
 #print '\nRequest Bytes:\n{}'.format(binascii.hexlify(REQUEST))

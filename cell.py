@@ -419,12 +419,10 @@ def unpack_not_implemented_payload(payload_len, payload_bytes,
 
 VERSION_LEN = 2
 
-def pack_versions_cell(link_version_list=[3,4,5], force_link_version=None):
+def pack_versions_cell(link_version_list, force_link_version=None):
     '''
     Pack a versions cell with link_version_list.
     If force_link_version is not None, use that circ_id_len.
-    We use versions 3-5 to match ssl_request(), which initiates a version
-    3 or later connection.
     You must pass the same link_version_list when packing the request and
     unpacking the response.
     See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n503
