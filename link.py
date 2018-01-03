@@ -63,12 +63,8 @@ def link_open(ip, port, link_version_list=[3,4,5], send_netinfo=True):
     Returns a context dictionary required to continue the connection:
         'link_version'             : the Tor cell link version used on the link
         'link_version_list'        : the list sent in the link VERSIONS cell
-        'open_sent_cell_bytes'     : the cell bytes sent to open the connection
-        'open_received_cell_bytes' : the cell bytes received when opening the
-                                     connection
         'ssl_socket'               : a SSL-wrapped TCP socket connected to ip
                                     and port
-        'tcp_socket'               : a TCP socket connected to ip and port
 
     Unless you're using a *very* weird version of OpenSSL, this initiates
     a Tor link version 3 or later connection.
@@ -78,15 +74,12 @@ def link_open(ip, port, link_version_list=[3,4,5], send_netinfo=True):
     conn = stem.socket.RelaySocket(ip, port)
 
     versions_cell_bytes = pack_versions_cell(link_version_list)
-    open_sent_cell_bytes = versions_cell_bytes
     conn.send(versions_cell_bytes)
-    open_received_cell_bytes = bytearray(conn.recv())
-    (link_version, _) = unpack_cells(open_received_cell_bytes, link_version_list=link_version_list)
+    (link_version, _) = unpack_cells(bytearray(conn.recv()), link_version_list=link_version_list)
     # Now we know the link version, send a netinfo cell
 
     if send_netinfo:
         netinfo_cell_bytes = pack_netinfo_cell(ip, link_version=link_version)
-        open_sent_cell_bytes += netinfo_cell_bytes
         conn.send(netinfo_cell_bytes)
         # We don't expect anything in response to our NETINFO
 
@@ -94,8 +87,6 @@ def link_open(ip, port, link_version_list=[3,4,5], send_netinfo=True):
       'ssl_socket': conn,
       'link_version': link_version,
       'link_version_list': link_version_list,
-      'open_sent_cell_bytes': open_sent_cell_bytes,
-      'open_received_cell_bytes': open_received_cell_bytes,
     }
 
 def link_pack_cell(context,
