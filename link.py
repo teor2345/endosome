@@ -74,26 +74,29 @@ def link_open(ip, port, link_version_list=[3,4,5], send_netinfo=True):
     a Tor link version 3 or later connection.
     See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n226
     '''
-    context = {'ssl_socket' : stem.socket.RelaySocket(ip, port)}
+
+    conn = stem.socket.RelaySocket(ip, port)
+
     versions_cell_bytes = pack_versions_cell(link_version_list)
     open_sent_cell_bytes = versions_cell_bytes
-    ssl_write(context, versions_cell_bytes)
-    open_received_cell_bytes = ssl_read(context)
-    (link_version, _) = unpack_cells(open_received_cell_bytes,
-                                     link_version_list=link_version_list)
+    conn.send(versions_cell_bytes)
+    open_received_cell_bytes = bytearray(conn.recv())
+    (link_version, _) = unpack_cells(open_received_cell_bytes, link_version_list=link_version_list)
     # Now we know the link version, send a netinfo cell
+
     if send_netinfo:
         netinfo_cell_bytes = pack_netinfo_cell(ip, link_version=link_version)
         open_sent_cell_bytes += netinfo_cell_bytes
-        ssl_write(context, netinfo_cell_bytes)
+        conn.send(netinfo_cell_bytes)
         # We don't expect anything in response to our NETINFO
-    context.update({
-            'link_version'             : link_version,
-            'link_version_list'        : link_version_list,
-            'open_sent_cell_bytes'     : open_sent_cell_bytes,
-            'open_received_cell_bytes' : open_received_cell_bytes,
-            })
-    return context
+
+    return {
+      'ssl_socket': conn,
+      'link_version': link_version,
+      'link_version_list': link_version_list,
+      'open_sent_cell_bytes': open_sent_cell_bytes,
+      'open_received_cell_bytes': open_received_cell_bytes,
+    }
 
 def link_pack_cell(context,
                    cell,
