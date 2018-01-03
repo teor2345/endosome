@@ -38,7 +38,7 @@ print 'SSL Server: {}:{}'.format(RELAYIP, ORPORT)
 print 'Opening Tor connection, sending link version and netinfo cells'
 (context, response_bytes) = link_request_cell_list(RELAYIP, ORPORT, cell_list)
 print 'Connection context:\n{}'.format(link_format_context(context))
-print 'Connection cells:\n{}'.format(link_format_cell_bytes(context,
+print 'Connection cells:\n{}'.format(format_cell_bytes(context,
                                                             response_bytes))
 
 # Try link version 3
@@ -46,5 +46,5 @@ print 'SSL Server: {}:{}'.format(RELAYIP, ORPORT)
 print 'Opening Tor connection, sending link versions cell only'
 (context, response_bytes) = link_request_cell_list(RELAYIP, ORPORT, cell_list, link_version_list=[3])
 print 'Connection context:\n{}'.format(link_format_context(context))
-print 'Connection cells:\n{}'.format(link_format_cell_bytes(context,
+print 'Connection cells:\n{}'.format(format_cell_bytes(context,
                                                             response_bytes))

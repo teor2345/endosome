@@ -98,11 +98,6 @@ def format_cell_bytes(context, cell_bytes,
                         skip_cell_bytes=skip_cell_bytes,
                         skip_zero_padding=skip_zero_padding)
 
-# compatibility with older scripts
-link_format_cell_bytes = format_cell_bytes
-# and for consistency
-circuit_format_cell_bytes = format_cell_bytes
-
 # This function is located in circuit.py to resolve a circular dependency
 def format_context(context,
                    link_version=None,
