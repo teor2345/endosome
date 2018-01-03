@@ -148,35 +148,6 @@ def link_write_cell_list(context,
     ssl_write(context, cell_bytes)
     return cell_bytes
 
-def link_make_cell(cell_command_string,
-                   circ_id=None,
-                   payload_bytes=None):
-    '''
-    Return a dictionary containing the cell contents, as in link_write_cell().
-    '''
-    cell = {}
-    cell['cell_command_string'] = cell_command_string
-    if circ_id is not None:
-        cell['circ_id'] = circ_id
-    if payload_bytes is not None:
-        cell['payload_bytes'] = payload_bytes
-    return cell
-
-def link_write_cell(context,
-                    cell_command_string,
-                    circ_id=None,
-                    payload_bytes=None):
-    '''
-    Write a Tor cell with cell_command_string, circ_id, and payload.
-    Returns the cell bytes sent on the wire.
-    See link_write_cell_list() for details.
-    '''
-    context = get_connect_context(context)
-    cell = link_make_cell(cell_command_string,
-                          circ_id=circ_id,
-                          payload_bytes=payload_bytes)
-    return link_write_cell_list(context, [cell])
-
 def link_read_cell_bytes(context):
     '''
     Reads and returns bytes from the ssl_socket in context.
