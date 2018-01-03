@@ -129,19 +129,9 @@ KF_LEN = KEY_LEN
 KB_LEN = KEY_LEN
 KDF_TOR_LEN = KH_LEN + DF_LEN + DB_LEN + KF_LEN + KB_LEN
 
-def circuit_create(link_context,
-                   create_cell_command_string='CREATE_FAST',
-                   circ_id=None,
-                   force_link_version=None,
-                   validate=True):
+def circuit_create(link_context):
     '''
-    Create a single-hop circuit using create_cell_command_string with circ_id,
-    on the link in link_context.
-    force_link_version overrides the link version in context.
-
-    If circ_id is None, use an unused, valid circuit ID for the link version.
-    If validate is true, check that that the remote KH matches the expected
-    value.
+    Create a single-hop circuit on the link in link_context.
 
     Returns a context dictionary required to continue using the circuit:
         'circ_id'            : the circuit id for this circuit
@@ -165,40 +155,32 @@ def circuit_create(link_context,
                                link, keyed by circuit id
        'circuits'/circ_id    : the circuit context for this circuit
     '''
+
     link_context = get_connect_context(link_context)
     # choose an unused circuit id, not just the lowest one
-    if circ_id is None:
-        circ_id = get_unused_circ_id(link_context, is_initiator_flag=True,
-                                     force_link_version=force_link_version)
-    # Send the circuit request
-    if create_cell_command_string == 'CREATE_FAST':
-        # Relays drop create cells for circuit ids that are in use
-        # If we don't do this check, we will hang when reading
-        assert not is_circ_id_used(link_context, circ_id)
-        create_cell_bytes = link_write_cell(link_context,
-                                      create_cell_command_string,
-                                      circ_id=circ_id,
-                                      payload_bytes=pack_create_fast_payload(),
-                                      force_link_version=force_link_version)
-        (_, create_cell_list) = unpack_cells_link(link_context,
-                                       create_cell_bytes,
-                                       force_link_version=force_link_version)
-        assert len(create_cell_list) == 1
-        create_cell = create_cell_list[0]
-        local_circ_id = create_cell['circ_id']
-        X_bytes = create_cell['X_bytes']
-    else:
-        # TODO: TAP & ntor handshakes, which need onion keys from descriptors
-        raise ValueError("{} not yet implemented"
-                         .format(create_cell_command_string))
+    circ_id = get_unused_circ_id(link_context, is_initiator_flag=True)
+
+    # Relays drop create cells for circuit ids that are in use
+    # If we don't do this check, we will hang when reading
+    assert not is_circ_id_used(link_context, circ_id)
+    create_cell_bytes = link_write_cell(link_context,
+                                  'CREATE_FAST',
+                                  circ_id=circ_id,
+                                  payload_bytes=pack_create_fast_payload())
+    (_, create_cell_list) = unpack_cells_link(link_context,
+                                   create_cell_bytes)
+    assert len(create_cell_list) == 1
+    create_cell = create_cell_list[0]
+    local_circ_id = create_cell['circ_id']
+    X_bytes = create_cell['X_bytes']
+
     # Make sure we sent a cell, if not, we will hang when reading
     assert local_circ_id is not None
 
     # Read and parse the response
     # You will hang here if you send a duplicate circuit ID
     created_cell_bytes = link_read_cell_bytes(link_context)
-    (_, cell_list) = unpack_cells_link(link_context, created_cell_bytes,
-                                       force_link_version=force_link_version)
+    (_, cell_list) = unpack_cells_link(link_context, created_cell_bytes)
     # Now find the created cell
     created_fast_found = False
     for cell in cell_list:
@@ -222,12 +204,8 @@ def circuit_create(link_context,
                 # Extract the circuit material
                 (expected_KH_bytes, temp_bytes) = split_field(KH_LEN,
                                                               temp_bytes)
-                if validate:
-                    #print "X: " + binascii.hexlify(X_bytes)
-                    #print "Y: " + binascii.hexlify(Y_bytes)
-                    #print "KH (server): " + binascii.hexlify(KH_bytes)
-                    #print "KH (client): " + binascii.hexlify(expected_KH_bytes)
-                    assert KH_bytes == expected_KH_bytes
+                assert KH_bytes == expected_KH_bytes
+
                 (Df_bytes, temp_bytes) = split_field(DF_LEN, temp_bytes)
                 (Db_bytes, temp_bytes) = split_field(DB_LEN, temp_bytes)
                 (Kf_bytes, temp_bytes) = split_field(KF_LEN, temp_bytes)
