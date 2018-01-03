@@ -419,37 +419,6 @@ def circuit_make_relay_cell(cell_command_string,
         cell['force_digest_bytes'] = force_digest_bytes
     return cell
 
-def circuit_write_cell(context,
-                       cell_command_string,
-                       relay_command_string,
-                       circ_id=None,
-                       force_link_version=None,
-                       force_payload_len=None,
-                       stream_id=None,
-                       relay_payload_bytes=None,
-                       force_relay_payload_len=None,
-                       force_recognized_bytes=None,
-                       force_digest_bytes=None):
-    '''
-    Pack, encrypt and send a Tor cell on the circuit in context.
-    Returns a tuple containing the cell bytes sent on the wire (after cell
-    encryption), and the cell bytes before encryption.
-    See circuit_write_cell_list() for details.
-    '''
-    context = get_circuit_context(context)
-    cell = circuit_make_relay_cell(cell_command_string,
-                               relay_command_string,
-                               circ_id=circ_id,
-                               force_link_version=force_link_version,
-                               force_payload_len=force_payload_len,
-                               stream_id=stream_id,
-                               relay_payload_bytes=relay_payload_bytes,
-                               force_relay_payload_len=force_relay_payload_len,
-                               force_recognized_bytes=force_recognized_bytes,
-                               force_digest_bytes=force_digest_bytes)
-    # The force_* arguments are redundant here
-    return circuit_write_cell_list(context, [cell])
-
 def circuit_read_cell_bytes(context):
     '''
     Reads bytes from the ssl_socket in circuit_context.

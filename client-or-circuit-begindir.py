@@ -17,8 +17,7 @@ ORPORT = 12345
 # Create the cell
 begindir_cell = circuit_make_relay_cell('RELAY',
                                         'RELAY_BEGIN_DIR',
-                                        stream_id=1,
-                                        relay_payload_bytes=None)
+                                        stream_id=1)
 
 # Try the default set of link versions: we will get 4 or 5, depending on
 # the Tor version

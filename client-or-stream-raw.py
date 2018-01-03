@@ -20,8 +20,7 @@ MAX_RESPONSE_LEN = 10*1024*1024
 # Create the BEGINDIR cell
 begindir_cell = circuit_make_relay_cell('RELAY',
                                         'RELAY_BEGIN_DIR',
-                                        stream_id=1,
-                                        relay_payload_bytes=None)
+                                        stream_id=1)
 
 # Create the RELAY_DATA cell
 request_cell = circuit_make_relay_cell('RELAY',
