@@ -160,15 +160,10 @@ def link_close(context,
 
 def link_request_cell_list(ip, port,
                            cell_list,
-                           link_version_list=[3,4,5], force_link_version=None,
-                           send_netinfo=True, sender_timestamp=None,
-                           sender_ip_list=None,
-                           do_shutdown=True):
+                           link_version_list=[3,4,5],
+                           send_netinfo=True):
     '''
     Send the Tor cells in cell_list to ip and port, using link_version_list,
-    (force_link_version overrides the negotiated link_version).
-    If do_shutdown is True, shut down the socket immediately after reading the
-    response.
     Returns a tuple containing the context, and the response bytes.
     Unless you're using a *very* weird version of OpenSSL, this makes
     a Tor link version 3 or later connection.
@@ -176,15 +171,10 @@ def link_request_cell_list(ip, port,
     '''
     context = link_open(ip, port,
                         link_version_list=link_version_list,
-                        force_link_version=force_link_version,
-                        send_netinfo=send_netinfo,
-                        sender_timestamp=sender_timestamp,
-                        sender_ip_list=sender_ip_list)
-    link_write_cell_list(context,
-                         cell_list,
-                         force_link_version=force_link_version)
+                        send_netinfo=send_netinfo)
+    link_write_cell_list(context, cell_list)
     response_cell_bytes = bytearray()
     if len(cell_list) > 0:
         response_cell_bytes = link_read_cell_bytes(context)
-    link_close(context, do_shutdown)
+    link_close(context, True)
     return (context, response_cell_bytes)
