@@ -169,7 +169,8 @@ def link_make_cell(cell_command_string,
     return cell
 
 def link_write_cell(context,
-                    cell_command_string, circ_id=None,
+                    cell_command_string,
+                    circ_id=None,
                     force_link_version=None,
                     payload_bytes=None,
                     force_payload_len=None):

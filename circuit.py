@@ -391,10 +391,7 @@ def circuit_read_cell_bytes(context):
     link_context = get_connect_context(context)
     return link_read_cell_bytes(link_context)
 
-def circuit_close(context,
-                  force_link_version=None,
-                  payload_bytes=None,
-                  force_payload_len=None):
+def circuit_close(context):
     '''
     Close the circuit in context using a DESTROY cell.
     Returns the result of link_write_cell().
@@ -402,12 +399,7 @@ def circuit_close(context,
     circuit_context = get_circuit_context(context)
     link_context = get_connect_context(context)
     destroy_circ_id = circuit_context['circ_id']
-    cell_bytes = link_write_cell(link_context,
-                                 'DESTROY',
-                                 circ_id=destroy_circ_id,
-                                 force_link_version=force_link_version,
-                                 payload_bytes=payload_bytes,
-                                 force_payload_len=force_payload_len)
+    cell_bytes = link_write_cell(link_context, 'DESTROY', circ_id=destroy_circ_id)
     # Enable re-use of the circuit id
     remove_circuit_context(link_context, circuit_context)
     return cell_bytes
@@ -433,8 +425,7 @@ def circuit_request_cell_list(link_context,
     if len(cell_list) > 0:
         response_cells_bytes = circuit_read_cell_bytes(circuit_context)
     if do_shutdown:
-        sent_destroy_cell_bytes = circuit_close(circuit_context,
-                                        force_link_version=force_link_version)
+        sent_destroy_cell_bytes = circuit_close(circuit_context)
         sent_crypt_cells_bytes += sent_destroy_cell_bytes
         sent_plain_cells_bytes += sent_destroy_cell_bytes
         # we don't expect a response to a DESTROY
