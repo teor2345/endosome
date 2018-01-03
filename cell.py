@@ -15,6 +15,8 @@ from pack import *
 from connect import *
 from crypto import *
 
+import stem.client
+
 # Link version constants
 # https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n538
 
@@ -417,20 +419,6 @@ def unpack_not_implemented_payload(payload_len, payload_bytes,
 
 VERSION_LEN = 2
 
-def pack_versions_payload(link_version_list=[3,4,5]):
-    '''
-    Pack a versions payload with link_version_list.
-    We use versions 3-5 to match ssl_request(), which initiates a version
-    3 or later connection.
-    You must pass the same link_version_list when packing the request and
-    unpacking the response.
-    See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n503
-    '''
-    packed_version_list = []
-    for version in link_version_list:
-        packed_version_list.append(pack_value(VERSION_LEN, version))
-    return bytearray().join(packed_version_list)
-
 def pack_versions_cell(link_version_list=[3,4,5], force_link_version=None):
     '''
     Pack a versions cell with link_version_list.
@@ -442,7 +430,7 @@ def pack_versions_cell(link_version_list=[3,4,5], force_link_version=None):
     See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n503
     '''
     return pack_cell('VERSIONS',
-                     payload_bytes=pack_versions_payload(link_version_list),
+                     payload_bytes=stem.client.serialize_versions(link_version_list),
                      link_version=force_link_version)
 
 def unpack_versions_payload(payload_len, payload_bytes,
