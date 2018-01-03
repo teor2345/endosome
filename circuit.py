@@ -436,14 +436,9 @@ def circuit_close(context,
 
 def circuit_request_cell_list(link_context,
                               cell_list,
-                              create_cell_command_string='CREATE_FAST',
-                              circ_id=None,
-                              force_link_version=None,
-                              validate=True,
                               do_shutdown=True):
     '''
     Send the Tor cells in cell_list on a newly created circuit on link_context,
-    (force_link_version overrides the negotiated link_version),
     and read bytes of response cells.
     If do_shutdown is true, send a DESTROY cell to shut down the circuit.
     Returns a tuple containing the modified link context, the circuit context,
@@ -451,16 +446,11 @@ def circuit_request_cell_list(link_context,
     (crypted) response cell(s) bytes.
     '''
     link_context = get_connect_context(link_context)
-    circuit_context = circuit_create(link_context,
-                         create_cell_command_string=create_cell_command_string,
-                         circ_id=circ_id,
-                         force_link_version=force_link_version,
-                         validate=validate)
+    circuit_context = circuit_create(link_context)
     (sent_cell_list,
      sent_crypt_cells_bytes,
      sent_plain_cells_bytes) = circuit_write_cell_list(circuit_context,
-                                        cell_list,
-                                        force_link_version=force_link_version)
+                                        cell_list)
     response_cells_bytes = bytearray()
     if len(cell_list) > 0:
         response_cells_bytes = circuit_read_cell_bytes(circuit_context)
