@@ -32,35 +32,6 @@ LINK_VERSION_DESC = {
 # The link version we use at the start of a connection
 INITIAL_LINK_VERSION = 3
 
-# Cell command field constants
-# https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n419
-
-# This table should be kept in sync with CELL_UNPACK
-CELL_COMMAND = {
-    # Fixed-length Cells
-    'PADDING'           :   0, # (Padding)                  (See Sec 7.2)
-    'CREATE'            :   1, # (Create a circuit)         (See Sec 5.1)
-    'CREATED'           :   2, # (Acknowledge create)       (See Sec 5.1)
-    'RELAY'             :   3, # (End-to-end data)          (See Sec 5.5 and 6)
-    'DESTROY'           :   4, # (Stop using a circuit)     (See Sec 5.4)
-    'CREATE_FAST'       :   5, # (Create a circuit, no PK)  (See Sec 5.1)
-    'CREATED_FAST'      :   6, # (Circuit created, no PK)   (See Sec 5.1)
-
-    'NETINFO'           :   8, # (Time and address info)    (See Sec 4.5)
-    'RELAY_EARLY'       :   9, # (End-to-end data; limited) (See Sec 5.6)
-    'CREATE2'           :  10, # (Extended CREATE cell)     (See Sec 5.1)
-    'CREATED2'          :  11, # (Extended CREATED cell)    (See Sec 5.1)
-    'PADDING_NEGOTIATE' :  12, # (Padding negotiation)      (See Sec 7.2)
-
-    # Variable-length cells
-    'VERSIONS'          :   7, # (Negotiate proto version)  (See Sec 4)
-
-    'VPADDING'          : 128, # (Variable-length padding)  (See Sec 7.2)
-    'CERTS'             : 129, # (Certificates)             (See Sec 4.2)
-    'AUTH_CHALLENGE'    : 130, # (Challenge value)          (See Sec 4.3)
-    'AUTHENTICATE'      : 131, # (Client authentication)    (See Sec 4.5)
-    'AUTHORIZE'         : 132, # (Client authorization)     (Not yet used)
-}
 
 def get_link_version_string(link_version):
     '''
@@ -72,24 +43,6 @@ def get_link_version_string(link_version):
                                  'UNKNOWN_LINK_VERSION_{}'
                                  .format(link_version))
 
-def get_cell_command_value(cell_command_string):
-    '''
-    Returns the cell command value for cell_command_string.
-    Asserts if cell_command_string is not a known cell command string.
-    '''
-    return CELL_COMMAND[cell_command_string]
-
-def get_cell_command_string(cell_command_value):
-    '''
-    Returns the cell command string for cell_command_value.
-    Returns a descriptive string if cell_command_value is not a known cell
-    command value.
-    '''
-    for cell_command_string in CELL_COMMAND:
-        if cell_command_value == get_cell_command_value(cell_command_string):
-            return cell_command_string
-    return 'UNKNOWN_CELL_COMMAND_{}'.format(cell_command_value)
-
 def get_payload_unpack_function(cell_command_value):
     '''
     Returns the cell unpack function for cell_command_value.
@@ -99,37 +52,10 @@ def get_payload_unpack_function(cell_command_value):
     command value, and unpack_not_implemented_payload if it is known, but
     there is no unpack implementation.
     '''
-    for cell_command_string in CELL_COMMAND:
-        if cell_command_value == get_cell_command_value(cell_command_string):
-            return CELL_UNPACK.get(cell_command_string,
-                                   unpack_not_implemented_payload)
-    return unpack_unknown_payload
+
+    return CELL_UNPACK.get(stem.client.cell_attributes(cell_command_value).name, unpack_not_implemented_payload)
 
 MIN_VAR_COMMAND_VALUE = 128
-
-def is_cell_command_variable_length(cell_command_value):
-    '''
-    Returns True if cell_command_value uses a variable-length cell,
-    and False otherwise.
-    See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n412
-    '''
-    if (cell_command_value == get_cell_command_value('VERSIONS') or
-        cell_command_value >= MIN_VAR_COMMAND_VALUE):
-        return True
-    return False
-
-def is_cell_command_circuit(cell_command_value):
-    '''
-    Returns True if cell_command_value is a circuit command,
-    and False otherwise.
-    See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n455
-    '''
-    cell_command_string = get_cell_command_string(cell_command_value)
-    if (cell_command_string.startswith('CREATE') or
-        cell_command_string.startswith('RELAY') or
-        cell_command_string.startswith('DESTROY')):
-        return True
-    return False
 
 # Security parameters
 # See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n46
@@ -233,23 +159,22 @@ def pack_cell_header(cell_command_string, link_version=None, circ_id=None,
     payload_len can be None or 0 when allowed by the cell command.
     See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n387
     '''
-    cell_command_value = get_cell_command_value(cell_command_string)
-    # Work out how long everything is
+
+    attr = stem.client.cell_attributes(cell_command_string)
     circ_id_len = get_cell_circ_id_len(link_version)
-    is_var_cell_flag = is_cell_command_variable_length(cell_command_value)
 
     # Now pack it all in
+
     if circ_id is None:
-        if is_cell_command_circuit(cell_command_value):
-            circ_id = get_min_valid_circ_id(link_version)
-        else:
-            circ_id = 0
+        circ_id = get_min_valid_circ_id(link_version) if attr.for_circuit else 0
+
     cell_header = pack_value(circ_id_len, circ_id)
 
     # byte order is irrelevant in this case
-    cell_header += pack_value(CELL_COMMAND_LEN, cell_command_value)
 
-    if is_var_cell_flag:
+    cell_header += pack_value(CELL_COMMAND_LEN, attr.value)
+
+    if not attr.fixed_length:
         cell_header += pack_value(PAYLOAD_LENGTH_LEN, payload_len)
 
     return cell_header
@@ -278,21 +203,25 @@ def unpack_cell_header(data_bytes, link_version=None):
     See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n387
         https://trac.torproject.org/projects/tor/ticket/22929
     '''
+
     # Work out how long everything is
     circ_id_len = get_cell_circ_id_len(link_version)
     temp_bytes = data_bytes
     (circ_id, temp_bytes) = unpack_value(circ_id_len, temp_bytes)
     (cell_command_value, temp_bytes) = unpack_value(CELL_COMMAND_LEN,
                                                     temp_bytes)
-    is_var_cell_flag = is_cell_command_variable_length(cell_command_value)
-    if is_var_cell_flag:
+
+    attr = stem.client.cell_attributes(cell_command_value)
+
+    if attr.fixed_length:
+        cell_len = get_cell_fixed_length(link_version)
+        payload_len = MAX_FIXED_PAYLOAD_LEN
+    else:
         (payload_len, temp_bytes) = unpack_value(PAYLOAD_LENGTH_LEN,
                                                  temp_bytes)
         cell_len = (circ_id_len + CELL_COMMAND_LEN + PAYLOAD_LENGTH_LEN +
                     payload_len)
-    else:
-        cell_len = get_cell_fixed_length(link_version)
-        payload_len = MAX_FIXED_PAYLOAD_LEN
+
     # Print out a diagnostic if we're about to assert
     # You might need to enable this for every cell to work out what's wrong
     if len(data_bytes) < cell_len or len(temp_bytes) < payload_len: # or True:
@@ -315,13 +244,13 @@ def unpack_cell_header(data_bytes, link_version=None):
     cell = {
         'link_version'        : link_version,
         'link_version_string' : get_link_version_string(link_version),
-        'is_var_cell_flag'    : is_var_cell_flag,
+        'is_var_cell_flag'    : not attr.fixed_length,
         'cell_len'            : cell_len,
         'cell_bytes'          : cell_bytes,
         'circ_id_len'         : circ_id_len,
         'circ_id'             : circ_id,
         'cell_command_value'  : cell_command_value,
-        'cell_command_string' : get_cell_command_string(cell_command_value),
+        'cell_command_string' : stem.client.cell_attributes(cell_command_value).name,
         'payload_len'         : payload_len,
         'payload_bytes'       : payload_bytes,
         'is_payload_zero_bytes_flag' : is_payload_zero_bytes_flag,
@@ -338,23 +267,27 @@ def pack_cell(cell_command_string, link_version=None, circ_id=None,
     See pack_cell_header() for other arfument details.
     See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n387
     '''
+
+    attr = stem.client.cell_attributes(cell_command_string)
+
     # Find the values
-    cell_command_value = get_cell_command_value(cell_command_string)
+
     circ_id_len = get_cell_circ_id_len(link_version)
     payload_len = 0 if payload_bytes is None else len(payload_bytes)
-    is_var_cell_flag = is_cell_command_variable_length(cell_command_value)
-    if is_var_cell_flag:
-        cell_len = (circ_id_len + CELL_COMMAND_LEN + PAYLOAD_LENGTH_LEN +
-                    payload_len)
-    else:
+
+    if attr.fixed_length:
         data_len = circ_id_len + CELL_COMMAND_LEN + payload_len
         cell_len = get_cell_fixed_length(link_version)
         zero_pad_len = cell_len - data_len
         assert payload_len <= MAX_FIXED_PAYLOAD_LEN
+    else:
+        cell_len = (circ_id_len + CELL_COMMAND_LEN + PAYLOAD_LENGTH_LEN + payload_len)
 
-    # Pack the bytes
+    # pack the bytes
+
     if force_payload_len is None:
         force_payload_len = payload_len
+
     cell = pack_cell_header(cell_command_string, link_version=link_version,
                             circ_id=circ_id, payload_len=force_payload_len)
 
@@ -362,7 +295,8 @@ def pack_cell(cell_command_string, link_version=None, circ_id=None,
         cell += payload_bytes
 
     # pad fixed-length cells to their length
-    if not is_var_cell_flag:
+
+    if attr.fixed_length:
         assert len(cell) == data_len
         cell += get_zero_pad(zero_pad_len)
 
@@ -1333,7 +1267,6 @@ def unpack_relay_payload(crypt_len,
     relay_content.update(digest_dict)
     return relay_content
 
-# This table should be kept in sync with CELL_COMMAND
 CELL_UNPACK = {
     # Fixed-length Cells
     'PADDING'           : unpack_unused_payload,
