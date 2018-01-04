@@ -145,40 +145,6 @@ def get_max_valid_circ_id(link_version):
     '''
     return get_pack_max(get_cell_circ_id_len(link_version))
 
-def pack_cell_header(cell_command_string, link_version=None, circ_id=None,
-                     payload_len=None):
-    '''
-    Pack a cell header for link_version, on circuit circ_id,
-    with command cell_command_string and payload_len.
-    link_version can be None for VERSIONS cells.
-    circ_id can be None, if it is, a valid circ_id is chosen:
-        * 0 for link-level cells, or
-        * get_min_valid_circ_id(link_version) for circuit-level cells.
-      If you want to build more than one circuit on a connection, you'll have
-      to supply unique circuit IDs yourself.
-    payload_len can be None or 0 when allowed by the cell command.
-    See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n387
-    '''
-
-    attr = stem.client.cell_attributes(cell_command_string)
-    circ_id_len = get_cell_circ_id_len(link_version)
-
-    # Now pack it all in
-
-    if circ_id is None:
-        circ_id = get_min_valid_circ_id(link_version) if attr.for_circuit else 0
-
-    cell_header = pack_value(circ_id_len, circ_id)
-
-    # byte order is irrelevant in this case
-
-    cell_header += pack_value(CELL_COMMAND_LEN, attr.value)
-
-    if not attr.fixed_length:
-        cell_header += pack_value(PAYLOAD_LENGTH_LEN, payload_len)
-
-    return cell_header
-
 def unpack_cell_header(data_bytes, link_version=None):
     '''
     Unpack a cell header out of data_bytes for link_version.
@@ -269,27 +235,25 @@ def pack_cell(cell_command_string, link_version=None, circ_id=None,
     '''
 
     attr = stem.client.cell_attributes(cell_command_string)
-
-    # Find the values
-
     circ_id_len = get_cell_circ_id_len(link_version)
     payload_len = 0 if payload_bytes is None else len(payload_bytes)
-
-    if attr.fixed_length:
-        data_len = circ_id_len + CELL_COMMAND_LEN + payload_len
-        cell_len = get_cell_fixed_length(link_version)
-        zero_pad_len = cell_len - data_len
-        assert payload_len <= MAX_FIXED_PAYLOAD_LEN
-    else:
-        cell_len = (circ_id_len + CELL_COMMAND_LEN + PAYLOAD_LENGTH_LEN + payload_len)
-
-    # pack the bytes
 
     if force_payload_len is None:
         force_payload_len = payload_len
 
-    cell = pack_cell_header(cell_command_string, link_version=link_version,
-                            circ_id=circ_id, payload_len=force_payload_len)
+    if circ_id is None:
+        circ_id = get_min_valid_circ_id(link_version) if attr.for_circuit else 0
+
+    cell_header = pack_value(circ_id_len, circ_id)
+
+    # byte order is irrelevant in this case
+
+    cell_header += pack_value(CELL_COMMAND_LEN, attr.value)
+
+    if not attr.fixed_length:
+        cell_header += pack_value(PAYLOAD_LENGTH_LEN, payload_len)
+
+    cell = cell_header
 
     if payload_bytes is not None:
         cell += payload_bytes
@@ -297,10 +261,11 @@ def pack_cell(cell_command_string, link_version=None, circ_id=None,
     # pad fixed-length cells to their length
 
     if attr.fixed_length:
-        assert len(cell) == data_len
-        cell += get_zero_pad(zero_pad_len)
+        data_len = circ_id_len + CELL_COMMAND_LEN + payload_len
+        cell_len = get_cell_fixed_length(link_version)
 
-    assert len(cell) == cell_len
+        cell += get_zero_pad(cell_len - data_len)
+
     return cell
 
 def unpack_unused_payload(payload_len, payload_bytes,
