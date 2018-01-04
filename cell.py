@@ -15,7 +15,7 @@ from pack import *
 from connect import *
 from crypto import *
 
-import stem.client
+from stem.client.cell import Cell, CircuitCell, VersionsCell
 
 # Link version constants
 # https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n538
@@ -53,7 +53,7 @@ def get_payload_unpack_function(cell_command_value):
     there is no unpack implementation.
     '''
 
-    return CELL_UNPACK.get(stem.client.cell_attributes(cell_command_value).name, unpack_not_implemented_payload)
+    return CELL_UNPACK.get(Cell.by_value(cell_command_value).NAME, unpack_not_implemented_payload)
 
 MIN_VAR_COMMAND_VALUE = 128
 
@@ -177,9 +177,9 @@ def unpack_cell_header(data_bytes, link_version=None):
     (cell_command_value, temp_bytes) = unpack_value(CELL_COMMAND_LEN,
                                                     temp_bytes)
 
-    attr = stem.client.cell_attributes(cell_command_value)
+    cls = Cell.by_value(cell_command_value)
 
-    if attr.fixed_length:
+    if cls.IS_FIXED_SIZE:
         cell_len = get_cell_fixed_length(link_version)
         payload_len = MAX_FIXED_PAYLOAD_LEN
     else:
@@ -210,13 +210,13 @@ def unpack_cell_header(data_bytes, link_version=None):
     cell = {
         'link_version'        : link_version,
         'link_version_string' : get_link_version_string(link_version),
-        'is_var_cell_flag'    : not attr.fixed_length,
+        'is_var_cell_flag'    : not cls.IS_FIXED_SIZE,
         'cell_len'            : cell_len,
         'cell_bytes'          : cell_bytes,
         'circ_id_len'         : circ_id_len,
         'circ_id'             : circ_id,
         'cell_command_value'  : cell_command_value,
-        'cell_command_string' : stem.client.cell_attributes(cell_command_value).name,
+        'cell_command_string' : cls.NAME,
         'payload_len'         : payload_len,
         'payload_bytes'       : payload_bytes,
         'is_payload_zero_bytes_flag' : is_payload_zero_bytes_flag,
@@ -234,7 +234,7 @@ def pack_cell(cell_command_string, link_version=None, circ_id=None,
     See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n387
     '''
 
-    attr = stem.client.cell_attributes(cell_command_string)
+    cls = Cell.by_name(cell_command_string)
     circ_id_len = get_cell_circ_id_len(link_version)
     payload_len = 0 if payload_bytes is None else len(payload_bytes)
 
@@ -242,15 +242,15 @@ def pack_cell(cell_command_string, link_version=None, circ_id=None,
         force_payload_len = payload_len
 
     if circ_id is None:
-        circ_id = get_min_valid_circ_id(link_version) if attr.for_circuit else 0
+        circ_id = get_min_valid_circ_id(link_version) if isinstance(cls, CircuitCell) else 0
 
     cell_header = pack_value(circ_id_len, circ_id)
 
     # byte order is irrelevant in this case
 
-    cell_header += pack_value(CELL_COMMAND_LEN, attr.value)
+    cell_header += pack_value(CELL_COMMAND_LEN, cls.VALUE)
 
-    if not attr.fixed_length:
+    if not cls.IS_FIXED_SIZE:
         cell_header += pack_value(PAYLOAD_LENGTH_LEN, payload_len)
 
     cell = cell_header
@@ -260,7 +260,7 @@ def pack_cell(cell_command_string, link_version=None, circ_id=None,
 
     # pad fixed-length cells to their length
 
-    if attr.fixed_length:
+    if cls.IS_FIXED_SIZE:
         data_len = circ_id_len + CELL_COMMAND_LEN + payload_len
         cell_len = get_cell_fixed_length(link_version)
 
@@ -326,9 +326,8 @@ def pack_versions_cell(link_version_list, force_link_version=None):
     unpacking the response.
     See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n503
     '''
-    return pack_cell('VERSIONS',
-                     payload_bytes=stem.client.serialize_versions(link_version_list),
-                     link_version=force_link_version)
+
+    return VersionsCell.pack(link_version_list)
 
 def unpack_versions_payload(payload_len, payload_bytes,
                             hop_hash_context=None,
