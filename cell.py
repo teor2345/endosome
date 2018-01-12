@@ -318,17 +318,6 @@ def unpack_not_implemented_payload(payload_len, payload_bytes,
 
 VERSION_LEN = 2
 
-def pack_versions_cell(link_version_list, force_link_version=None):
-    '''
-    Pack a versions cell with link_version_list.
-    If force_link_version is not None, use that circ_id_len.
-    You must pass the same link_version_list when packing the request and
-    unpacking the response.
-    See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n503
-    '''
-
-    return VersionsCell.pack(link_version_list)
-
 def unpack_versions_payload(payload_len, payload_bytes,
                             hop_hash_context=None,
                             hop_crypt_context=None,

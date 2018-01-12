@@ -7,6 +7,7 @@
 
 import binascii
 
+import stem.client.cell
 import stem.socket
 
 from connect import *
@@ -72,8 +73,8 @@ def link_open(ip, port, link_version_list=[3,4,5], send_netinfo=True):
     '''
 
     conn = stem.socket.RelaySocket(ip, port)
+    versions_cell_bytes = stem.client.cell.VersionsCell.pack(link_version_list)
 
-    versions_cell_bytes = pack_versions_cell(link_version_list)
     conn.send(versions_cell_bytes)
     (link_version, _) = unpack_cells(bytearray(conn.recv()), link_version_list=link_version_list)
     # Now we know the link version, send a netinfo cell

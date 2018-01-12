@@ -7,6 +7,8 @@
 
 import binascii
 
+import stem.client.cell
+
 from endosome import *
 
 # The default IP and Port
@@ -20,7 +22,7 @@ ORPORT = 12345
 
 version_list = [3]
 REQUEST  = pack_padding_cell()
-REQUEST += pack_versions_cell(version_list)
+REQUEST += stem.client.cell.VersionsCell.pack(version_list)
 
 print 'SSL Server: {}:{}'.format(RELAYIP, ORPORT)
 print '\nRequest Cells:\n{}'.format(format_cells(REQUEST, version_list))
@@ -41,7 +43,7 @@ version_list = [4]
 # You can send as many of these as you like. No, really, as many as you like.
 #
 REQUEST  = pack_vpadding_cell(0) * 5000
-REQUEST += pack_versions_cell(version_list)
+REQUEST += stem.client.cell.VersionsCell.pack(version_list)
 
 print 'SSL Server: {}:{}'.format(RELAYIP, ORPORT)
 print '\nRequest Cells:\n{}'.format(format_cells(REQUEST, version_list))
@@ -58,7 +60,7 @@ print 'Response Cells:\n{}'.format(format_cells(response, version_list))
 version_list = [4]
 REQUEST  = pack_vpadding_cell(0)
 REQUEST += pack_padding_cell()
-REQUEST += pack_versions_cell(version_list)
+REQUEST += stem.client.cell.VersionsCell.pack(version_list)
 
 print 'SSL Server: {}:{}'.format(RELAYIP, ORPORT)
 print '\nRequest Cells:\n{}'.format(format_cells(REQUEST, version_list))

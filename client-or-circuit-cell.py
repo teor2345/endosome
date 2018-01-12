@@ -5,6 +5,8 @@
 
 import binascii
 
+import stem.client.cell
+
 from endosome import *
 
 # The default IP and Port
@@ -17,7 +19,7 @@ ORPORT = 12345
 # VERSIONS, CERTS, AUTH_CHALLENGE, NETINFO, CREATED_FAST
 
 version_list=[3, 4]
-REQUEST  = pack_versions_cell(version_list)
+REQUEST  = stem.client.cell.VersionsCell.pack(version_list)
 # TODO: read and parse the remote VERSIONS cell instead of hard-coding this
 # [3, 4] for <= 0.3.0, [3, 4, 5] for >= 0.3.1.1-alpha
 remote_version_list = [3, 4]

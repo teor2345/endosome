@@ -5,6 +5,8 @@
 
 import binascii
 
+import stem.client.cell
+
 from endosome import *
 
 # The default IP and Port
@@ -18,7 +20,7 @@ ORPORT = 12345
 
 version_list = [4]
 link_version = version_list[-1]
-REQUEST  = pack_versions_cell(version_list)
+REQUEST  = stem.client.cell.VersionsCell.pack(version_list)
 REQUEST += pack_netinfo_cell('127.0.0.1', link_version=link_version)
 
 print 'SSL Server: {}:{}'.format(RELAYIP, ORPORT)
