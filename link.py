@@ -73,10 +73,14 @@ def link_open(ip, port, link_version_list=[3,4,5], send_netinfo=True):
     '''
 
     conn = stem.socket.RelaySocket(ip, port)
-    versions_cell_bytes = stem.client.cell.VersionsCell.pack(link_version_list)
+    conn.send(stem.client.cell.VersionsCell.pack(link_version_list))
 
-    conn.send(versions_cell_bytes)
-    (link_version, _) = unpack_cells(bytearray(conn.recv()), link_version_list=link_version_list)
+    # From the VERSIONS reply determine the highest protocol version we both
+    # support. Following cells are ignored since we don't use them.
+
+    versions_reply, _ = stem.client.cell.Cell.unpack(conn.recv(), 2)
+    link_version = get_highest_common_version(versions_reply.versions, link_version_list)
+
     # Now we know the link version, send a netinfo cell
 
     if send_netinfo:

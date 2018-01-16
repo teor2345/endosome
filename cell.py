@@ -15,7 +15,7 @@ from pack import *
 from connect import *
 from crypto import *
 
-from stem.client.cell import Cell, CircuitCell, VersionsCell
+from stem.client.cell import Cell, CircuitCell
 
 # Link version constants
 # https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n538
