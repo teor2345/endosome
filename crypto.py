@@ -15,7 +15,7 @@ import cryptography.hazmat.primitives.kdf.hkdf as hkdf
 
 import cryptography.hazmat.backends as backends
 
-from pack import *
+from stem.client import ZERO, Size, split
 
 BITS_IN_BYTE = 8
 
@@ -55,7 +55,7 @@ def hash_extract(hash_context, output_len=None, make_context_reusable=True):
     extract_context = hash_context
     if make_context_reusable:
         extract_context = hash_context.copy()
-    (output_bytes, _) = split_field(output_len, extract_context.finalize())
+    (output_bytes, _) = split(extract_context.finalize(), output_len)
     return output_bytes
 
 # TODO: hash_finalize? hash_destroy?
@@ -73,8 +73,6 @@ def hash_bytes(data_bytes, output_len=None, algorithm=hashes.SHA1()):
 
 # Tor-specific hash functions
 
-COUNTER_BYTE_LEN = 1
-
 def kdf_tor(K0_bytes, output_len):
     '''
     Return output_len bytes generated from K0_bytes using KDF-TOR (sic).
@@ -84,10 +82,10 @@ def kdf_tor(K0_bytes, output_len):
     i = 0
     while len(output_bytes) < output_len:
         assert i < 256
-        counter_byte = pack_value(COUNTER_BYTE_LEN, i)
+        counter_byte = Size.CHAR.pack(i)
         output_bytes += hash_bytes(K0_bytes + counter_byte)
         i += 1
-    (output_bytes, _) = split_field(output_len, output_bytes)
+    (output_bytes, _) = split(output_bytes, output_len)
     return output_bytes
 
 # TODO: test the ntor KDF
@@ -133,7 +131,7 @@ def crypt_create(key_bytes,
     algo = algorithm(bytes(key_bytes))
     # The block_size is in bits
     if iv_bytes is None:
-        iv_bytes = get_zero_pad(algo.block_size/BITS_IN_BYTE)
+        iv_bytes = ZERO * (algo.block_size / BITS_IN_BYTE)
     cipher = ciphers.Cipher(algo, mode(bytes(iv_bytes)),
                             backend=backends.default_backend()) 
     if is_encrypt_flag:

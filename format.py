@@ -5,7 +5,6 @@
 
 # Formatting functions
 
-from pack import *
 from connect import *
 from cell import *
 from link import *

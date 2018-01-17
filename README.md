@@ -82,7 +82,6 @@ They are named after the corresponding tor trac ticket number.
 * endosome.py imports all the other files
 * connect.py opens, closes, and exchanges data on TCP and SSL connections
 * crypto.py contains some Tor cryptographic primitives
-* pack.py packs and unpacks individual data fields
 * cell.py crypts, packs, and unpacks cells
 * link.py opens, closes, and exchanges data on Tor links
 * circuit.py opens, closes, and exchanges data on Tor circuits

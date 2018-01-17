@@ -5,10 +5,11 @@
 
 # Circuit-level functions
 
-from pack import *
 from connect import *
 from cell import *
 from link import *
+
+from stem.client import split
 
 def get_circuit_context(context):
     '''
@@ -206,14 +207,13 @@ def circuit_create(link_context):
                 # Create the circuit material using a KDF
                 temp_bytes = kdf_tor(K0_bytes, KDF_TOR_LEN)
                 # Extract the circuit material
-                (expected_KH_bytes, temp_bytes) = split_field(KH_LEN,
-                                                              temp_bytes)
+                (expected_KH_bytes, temp_bytes) = split(temp_bytes, KH_LEN)
                 assert KH_bytes == expected_KH_bytes
 
-                (Df_bytes, temp_bytes) = split_field(DF_LEN, temp_bytes)
-                (Db_bytes, temp_bytes) = split_field(DB_LEN, temp_bytes)
-                (Kf_bytes, temp_bytes) = split_field(KF_LEN, temp_bytes)
-                (Kb_bytes, temp_bytes) = split_field(KB_LEN, temp_bytes)
+                (Df_bytes, temp_bytes) = split(temp_bytes, DF_LEN)
+                (Db_bytes, temp_bytes) = split(temp_bytes, DB_LEN)
+                (Kf_bytes, temp_bytes) = split(temp_bytes, KF_LEN)
+                (Kb_bytes, temp_bytes) = split(temp_bytes, KB_LEN)
                 #print "Df: " + binascii.hexlify(Df_bytes)
                 #print "Db: " + binascii.hexlify(Db_bytes)
                 #print "Kf: " + binascii.hexlify(Kf_bytes)

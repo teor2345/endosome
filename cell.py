@@ -11,10 +11,10 @@ import ipaddress
 import os
 import time
 
-from pack import *
 from connect import *
 from crypto import *
 
+from stem.client import ZERO, split
 from stem.client.cell import Cell, CircuitCell
 
 # Link version constants
@@ -143,7 +143,8 @@ def get_max_valid_circ_id(link_version):
     Get the maximum valid circuit id for link_version.
     See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n768
     '''
-    return get_pack_max(get_cell_circ_id_len(link_version))
+
+    return 2 ** (8 * get_cell_circ_id_len(link_version)) - 1
 
 def unpack_cell_header(data_bytes, link_version=None):
     '''
@@ -173,9 +174,8 @@ def unpack_cell_header(data_bytes, link_version=None):
     # Work out how long everything is
     circ_id_len = get_cell_circ_id_len(link_version)
     temp_bytes = data_bytes
-    (circ_id, temp_bytes) = unpack_value(circ_id_len, temp_bytes)
-    (cell_command_value, temp_bytes) = unpack_value(CELL_COMMAND_LEN,
-                                                    temp_bytes)
+    (circ_id, temp_bytes) = Size.SHORT.pop(temp_bytes) if circ_id_len == 2 else Size.LONG.pop(temp_bytes)
+    (cell_command_value, temp_bytes) = Size.CHAR.pop(temp_bytes)
 
     cls = Cell.by_value(cell_command_value)
 
@@ -183,8 +183,7 @@ def unpack_cell_header(data_bytes, link_version=None):
         cell_len = get_cell_fixed_length(link_version)
         payload_len = MAX_FIXED_PAYLOAD_LEN
     else:
-        (payload_len, temp_bytes) = unpack_value(PAYLOAD_LENGTH_LEN,
-                                                 temp_bytes)
+        (payload_len, temp_bytes) = Size.SHORT.pop(temp_bytes)
         cell_len = (circ_id_len + CELL_COMMAND_LEN + PAYLOAD_LENGTH_LEN +
                     payload_len)
 
@@ -202,11 +201,10 @@ def unpack_cell_header(data_bytes, link_version=None):
     # check the received data is long enough
     # if you parse a cell using the wrong link version, you will probably
     # trigger an assertion here
-    (cell_bytes, remaining_bytes) = split_field(cell_len, data_bytes)
-    (payload_bytes, payload_remaining_bytes) = split_field(payload_len,
-                                                           temp_bytes)
+    (cell_bytes, remaining_bytes) = split(data_bytes, cell_len)
+    (payload_bytes, payload_remaining_bytes) = split(temp_bytes, payload_len)
     assert remaining_bytes == payload_remaining_bytes
-    is_payload_zero_bytes_flag = (payload_bytes == get_zero_pad(payload_len))
+    is_payload_zero_bytes_flag = (payload_bytes == ZERO * payload_len)
     cell = {
         'link_version'        : link_version,
         'link_version_string' : get_link_version_string(link_version),
@@ -244,14 +242,14 @@ def pack_cell(cell_command_string, link_version=None, circ_id=None,
     if circ_id is None:
         circ_id = get_min_valid_circ_id(link_version) if isinstance(cls, CircuitCell) else 0
 
-    cell_header = pack_value(circ_id_len, circ_id)
+    cell_header = Size.SHORT.pack(circ_id) if circ_id_len == 2 else Size.LONG.pack(circ_id)
 
     # byte order is irrelevant in this case
 
-    cell_header += pack_value(CELL_COMMAND_LEN, cls.VALUE)
+    cell_header += Size.CHAR.pack(cls.VALUE)
 
     if not cls.IS_FIXED_SIZE:
-        cell_header += pack_value(PAYLOAD_LENGTH_LEN, payload_len)
+        cell_header += Size.SHORT.pack(payload_len)
 
     cell = cell_header
 
@@ -264,7 +262,7 @@ def pack_cell(cell_command_string, link_version=None, circ_id=None,
         data_len = circ_id_len + CELL_COMMAND_LEN + payload_len
         cell_len = get_cell_fixed_length(link_version)
 
-        cell += get_zero_pad(cell_len - data_len)
+        cell += ZERO * (cell_len - data_len)
 
     return cell
 
@@ -334,7 +332,7 @@ def unpack_versions_payload(payload_len, payload_bytes,
     unpacked_version_list = []
     temp_bytes = payload_bytes
     while len(temp_bytes) >= VERSION_LEN:
-        (version, temp_bytes) = unpack_value(VERSION_LEN, temp_bytes)
+        (version, temp_bytes) = Size.SHORT.pop(temp_bytes)
         unpacked_version_list.append(version)
     return {
         'link_version_list' : unpacked_version_list,
@@ -372,7 +370,7 @@ def pack_padding_payload():
         https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n1534
         https://trac.torproject.org/projects/tor/ticket/22948
     '''
-    return get_random_bytes(MAX_FIXED_PAYLOAD_LEN)
+    return os.urandom(MAX_FIXED_PAYLOAD_LEN)
 
 def pack_padding_cell(link_version=None):
     '''
@@ -389,7 +387,7 @@ def pack_vpadding_payload(payload_len):
     See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n419
         https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n1534
     '''
-    return get_random_bytes(payload_len)
+    return os.urandom(payload_len)
 
 def pack_vpadding_cell(payload_len, link_version=None):
     '''
@@ -425,8 +423,8 @@ def pack_resolve_error(error_type):
     See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n1480
         https://trac.torproject.org/projects/tor/ticket/22937
     '''
-    result  = pack_value(RESOLVE_TYPE_LEN, error_type)
-    result += pack_value(RESOLVE_VALUE_LENGTH_LEN, RESOLVE_ERROR_VALUE_LEN)
+    result  = Size.CHAR.pack(error_type)
+    result += Size.CHAR.pack(RESOLVE_ERROR_VALUE_LEN)
 
 # TODO: unpack_resolve_error
 
@@ -451,8 +449,8 @@ def pack_address(address):
         addr_type = HOST_ADDRESS_TYPE
         addr_len = len(address)
 
-    result  = pack_value(RESOLVE_TYPE_LEN, addr_type)
-    result += pack_value(RESOLVE_VALUE_LENGTH_LEN, addr_len)
+    result  = Size.CHAR.pack(addr_type)
+    result += Size.CHAR.pack(addr_len)
     assert len(addr_bytes) == addr_len
     result += addr_bytes
     return result
@@ -480,7 +478,7 @@ def unpack_ip_address_bytes(data_bytes, addr_type):
     assert len(data_bytes) >= addr_len
     if addr_type == IPV4_ADDRESS_TYPE:
         assert addr_len == IPV4_ADDRESS_LEN
-        (addr_bytes, remaining_bytes) = split_field(addr_len, data_bytes)
+        (addr_bytes, remaining_bytes) = split(data_bytes, addr_len)
         # Some ipaddress variants demand bytearray, others demand bytes
         try:
             addr_value = ipaddress.IPv4Address(bytearray(addr_bytes))
@@ -492,7 +490,7 @@ def unpack_ip_address_bytes(data_bytes, addr_type):
         addr_value = ipaddress.IPv4Address(bytes(addr_bytes))
     elif addr_type == IPV6_ADDRESS_TYPE:
         assert addr_len == IPV6_ADDRESS_LEN
-        (addr_bytes, remaining_bytes) = split_field(addr_len, data_bytes)
+        (addr_bytes, remaining_bytes) = split(data_bytes, addr_len)
         try:
             addr_value = ipaddress.IPv6Address(bytearray(addr_bytes))
             return (str(addr_value), remaining_bytes)
@@ -513,8 +511,8 @@ def unpack_address(data_bytes):
     '''
     assert len(data_bytes) >= MIN_ADDRESS_LEN
     temp_bytes = data_bytes
-    (addr_type, temp_bytes) = unpack_value(RESOLVE_TYPE_LEN, temp_bytes)
-    (addr_len, temp_bytes) = unpack_value(RESOLVE_VALUE_LENGTH_LEN, temp_bytes)
+    (addr_type, temp_bytes) = Size.CHAR.pop(temp_bytes)
+    (addr_len, temp_bytes) = Size.CHAR.pop(temp_bytes)
     assert len(data_bytes) >= addr_len
     assert addr_len == get_addr_type_len(addr_type)
     return unpack_ip_address_bytes(temp_bytes, addr_type)
@@ -538,13 +536,10 @@ def pack_resolve(address=None, error_type=None, ttl=None):
     else:
         raise ValueError('Must supply exactly one of address or error_type')
     if ttl is not None:
-        result += pack_value(RESOLVE_TTL_LEN, ttl)
+        result += Size.LONG.pack(ttl)
     return result
 
 # TODO: unpack_resolve
-
-TIMESTAMP_LEN = 4
-ADDRESS_COUNT_LEN = 1
 
 def pack_netinfo_payload(receiver_ip_string, sender_timestamp=None,
                          sender_ip_list=None):
@@ -560,9 +555,9 @@ def pack_netinfo_payload(receiver_ip_string, sender_timestamp=None,
         sender_timestamp = int(time.time())
     if sender_ip_list is None:
         sender_ip_list = []
-    payload_bytes  = pack_value(TIMESTAMP_LEN, sender_timestamp)
+    payload_bytes  = Size.LONG.pack(sender_timestamp)
     payload_bytes += pack_address(receiver_ip_string)
-    payload_bytes += pack_value(ADDRESS_COUNT_LEN, len(sender_ip_list))
+    payload_bytes += Size.CHAR.pack(len(sender_ip_list))
     # The caller should ensure an IPv4 address is first
     # See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n1503
     for sender_ip_string in sender_ip_list:
@@ -601,9 +596,9 @@ def unpack_netinfo_payload(payload_len, payload_bytes,
     '''
     assert len(payload_bytes) == payload_len
     temp_bytes = payload_bytes
-    (sender_timestamp, temp_bytes) = unpack_value(TIMESTAMP_LEN, temp_bytes)
+    (sender_timestamp, temp_bytes) = Size.LONG.pop(temp_bytes)
     (receiver_ip_string, temp_bytes) = unpack_address(temp_bytes)
-    (sender_ip_count, temp_bytes) = unpack_value(ADDRESS_COUNT_LEN, temp_bytes)
+    (sender_ip_count, temp_bytes) = Size.CHAR.pop(temp_bytes)
     # now parse the rest of the addresses
     sender_ip_list = []
     i = 0
@@ -625,7 +620,7 @@ def pack_create_fast_payload():
     Pack HASH_LEN random bytes into a CREATE_FAST payload.
     See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n962
     '''
-    return get_random_bytes(HASH_LEN)
+    return os.urandom(HASH_LEN)
 
 def pack_create_fast_cell(circ_id, link_version=None):
     '''
@@ -652,7 +647,7 @@ def unpack_create_fast_payload(payload_len, payload_bytes,
     See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n962
     '''
     assert len(payload_bytes) == payload_len
-    (X_bytes, _) = split_field(HASH_LEN, payload_bytes)
+    (X_bytes, _) = split(payload_bytes, HASH_LEN)
     return {
         'X_bytes' : X_bytes,
         }
@@ -677,8 +672,8 @@ def unpack_created_fast_payload(payload_len, payload_bytes,
     assert len(payload_bytes) == payload_len
     assert payload_len >= HASH_LEN*2
     remaining_bytes = payload_bytes
-    (Y_bytes,  remaining_bytes) = split_field(HASH_LEN, remaining_bytes)
-    (KH_bytes, remaining_bytes) = split_field(HASH_LEN, remaining_bytes)
+    (Y_bytes,  remaining_bytes) = split(remaining_bytes, HASH_LEN)
+    (KH_bytes, remaining_bytes) = split(remaining_bytes, HASH_LEN)
     return {
         'Y_bytes'  : Y_bytes,
         'KH_bytes' : KH_bytes,
@@ -779,17 +774,16 @@ def pack_relay_header(relay_command_string,
     relay_payload_len_value = (0 if relay_payload_len is None else
                                relay_payload_len)
     # Now pack the bytes
-    relay_header  = pack_value(RELAY_COMMAND_LEN, relay_command_value)
-    relay_header += pack_value(RECOGNIZED_LEN, recognized_value)
-    relay_header += pack_value(STREAM_ID_LEN, stream_id_value)
+    relay_header  = Size.CHAR.pack(relay_command_value)
+    relay_header += Size.SHORT.pack(recognized_value)
+    relay_header += Size.SHORT.pack(stream_id_value)
     if relay_digest_bytes is not None:
         assert len(relay_digest_bytes) == RELAY_DIGEST_LEN
         # No byte-swapping here
         relay_header += relay_digest_bytes
     else:
-        relay_header += get_zero_pad(RELAY_DIGEST_LEN)
-    relay_header += pack_value(RELAY_PAYLOAD_LENGTH_LEN,
-                               relay_payload_len_value)
+        relay_header += ZERO * RELAY_DIGEST_LEN
+    relay_header += Size.SHORT.pack(relay_payload_len_value)
     return relay_header
 
 def is_relay_header_valid(relay_payload_len, recognized_bytes):
@@ -800,7 +794,7 @@ def is_relay_header_valid(relay_payload_len, recognized_bytes):
     # TODO: if variable-length relay payloads are ever allowed, this will break
     if relay_payload_len > MAX_FIXED_RELAY_PAYLOAD_LEN:
         return False
-    if recognized_bytes != get_zero_pad(len(recognized_bytes)):
+    if recognized_bytes != ZERO * len(recognized_bytes):
         return False
     # We can't check the digest: we don't have the context
     return True
@@ -836,14 +830,11 @@ def unpack_relay_header(payload_len, payload_bytes):
     assert payload_len <= MAX_FIXED_PAYLOAD_LEN
     # Unpack the bytes
     temp_bytes = payload_bytes
-    (relay_command_value, temp_bytes) = unpack_value(RELAY_COMMAND_LEN,
-                                                     temp_bytes)
-    (recognized_bytes, temp_bytes) = split_field(RECOGNIZED_LEN, temp_bytes)
-    (stream_id, temp_bytes) = unpack_value(STREAM_ID_LEN, temp_bytes)
-    (relay_digest_bytes, temp_bytes) = split_field(RELAY_DIGEST_LEN,
-                                                    temp_bytes)
-    (relay_payload_len, temp_bytes) = unpack_value(RELAY_PAYLOAD_LENGTH_LEN,
-                                                   temp_bytes)
+    (relay_command_value, temp_bytes) = Size.CHAR.pop(temp_bytes)
+    (recognized_bytes, temp_bytes) = split(temp_bytes, RECOGNIZED_LEN)
+    (stream_id, temp_bytes) = Size.SHORT.pop(temp_bytes)
+    (relay_digest_bytes, temp_bytes) = split(temp_bytes, RELAY_DIGEST_LEN)
+    (relay_payload_len, temp_bytes) = Size.SHORT.pop(temp_bytes)
     # Find derived values
     is_relay_header_valid_flag = is_relay_header_valid(relay_payload_len,
                                                        recognized_bytes)
@@ -857,9 +848,9 @@ def unpack_relay_header(payload_len, payload_bytes):
         }
     if is_relay_header_valid_flag:
         relay_command_string = get_relay_command_string(relay_command_value)
-        (relay_payload_bytes, _) = split_field(relay_payload_len, temp_bytes)
+        (relay_payload_bytes, _) = split(temp_bytes, relay_payload_len)
         is_relay_payload_zero_bytes_flag = (relay_payload_bytes ==
-                                            get_zero_pad(relay_payload_len))
+                                            ZERO * relay_payload_len)
         result.update({
         'relay_command_string'             : relay_command_string,
         'relay_payload_bytes'              : relay_payload_bytes,
@@ -903,7 +894,7 @@ def pack_relay_payload_impl(relay_command_string,
 
     # pad fixed-length cells to their length
     assert len(payload_bytes) == payload_data_len
-    payload_bytes += get_zero_pad(zero_pad_len)
+    payload_bytes += ZERO * zero_pad_len
 
     assert len(payload_bytes) == MAX_FIXED_PAYLOAD_LEN
     return payload_bytes
@@ -970,7 +961,7 @@ def pack_relay_drop_data():
     See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n1534
         https://trac.torproject.org/projects/tor/ticket/22948
     '''
-    return get_random_bytes(MAX_FIXED_RELAY_PAYLOAD_LEN)
+    return os.urandom(MAX_FIXED_RELAY_PAYLOAD_LEN)
 
 def pack_relay_drop_payload(hop_hash_context, hop_crypt_context,
                             force_recognized_bytes=None,
@@ -1056,18 +1047,17 @@ def unpack_relay_connected_payload(relay_payload_len, relay_payload_bytes):
         }
     assert relay_payload_len >= MIN_RELAY_CONNECTED_LEN
     temp_bytes = relay_payload_bytes
-    if (temp_bytes == get_zero_pad(IPV4_ADDRESS_LEN)):
+    if (temp_bytes == ZERO * IPV4_ADDRESS_LEN):
         # Four zero-valued octets followed by a type/IPv6/TTL
-        (_, temp_bytes) = split_field(IPV4_ADDRESS_LEN, temp_bytes)
-        (addr_type, temp_bytes) = split_field(CONNECTED_ADDRESS_TYPE_LEN,
-                                              temp_bytes)
+        (_, temp_bytes) = split(temp_bytes, IPV4_ADDRESS_LEN)
+        (addr_type, temp_bytes) = split(temp_bytes, CONNECTED_ADDRESS_TYPE_LEN)
         assert addr_type == IPV6_ADDRESS_TYPE
     else:
         # IPv4/TTL
         addr_type = IPV4_ADDRESS_TYPE
     (connected_ip_string, temp_bytes) = unpack_ip_address_bytes(temp_bytes,
                                                                 addr_type)
-    (connected_ttl, _) = unpack_value(CONNECTED_TTL_LEN, temp_bytes)
+    (connected_ttl, _) = Size.LONG.pop(temp_bytes)
     return {
         'connected_ip_string'    : connected_ip_string,
         'connected_ttl'          : connected_ttl,
@@ -1213,7 +1203,7 @@ def unpack_relay_payload(crypt_len,
         # check the cell was decoded correctly
         assert (expected_relay_digest_bytes ==
                 relay_content['relay_digest_bytes'])
-        assert recognized_bytes == get_zero_pad(RECOGNIZED_LEN)
+        assert recognized_bytes == ZERO * RECOGNIZED_LEN
     digest_dict = {
         'expected_relay_digest_bytes' : expected_relay_digest_bytes,
         }
