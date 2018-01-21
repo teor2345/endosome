@@ -39,55 +39,24 @@ request_cell = {
 print 'SSL Server: {}:{}'.format(RELAYIP, ORPORT)
 print 'Opening Tor connection and creating a v4 or v5 link, circuit, and request cells'
 link_context = link_open(RELAYIP, ORPORT)
-(link_context,
- circuit_context,
- sent_crypt_cells_bytes,
- sent_plain_cells_bytes,
- response_cells_bytes) = circuit_request_cell_list(link_context,
-                                                   [begindir_cell,
-                                                    request_cell],
-                                                   # don't shutdown yet
-                                                   do_shutdown=False)
-response_cells_bytes += circuit_read_cell_bytes(circuit_context)
+(link_context, circuit_context, _, _, _) = circuit_request_cell_list(link_context, [begindir_cell, request_cell], do_shutdown=False)
+
 destroy_cell = circuit_close(circuit_context)
-sent_plain_cells_bytes += destroy_cell
-sent_crypt_cells_bytes += destroy_cell
 print '\nLink context:\n{}'.format(link_format_context(link_context))
 print '\nCircuit context:\n{}'.format(circuit_format_context(circuit_context))
 # We don't want to decrypt or re-digest outbound cells, so we pass None for
 # is_cell_outbound_flag
-print '\nCells Sent (crypt):\n{}'.format(format_cell_bytes(circuit_context,
-                                                  sent_crypt_cells_bytes,
-                                                  is_cell_outbound_flag=None,
-                                                  validate=False))
-print '\nCells Sent (plain):\n{}'.format(format_cell_bytes(circuit_context,
-                                                  sent_plain_cells_bytes,
-                                                  is_cell_outbound_flag=None,
-                                                  validate=True))
 # Validation doesn't work yet, there's something buggy in the hashing,
 # probably around is_cell_outbound_flag
-print '\nCells Received:\n{}'.format(format_cell_bytes(circuit_context,
-                                                  response_cells_bytes,
-                                                  is_cell_outbound_flag=False,
-                                                  validate=False))
 
 # Try link version 3
 print 'SSL Server: {}:{}'.format(RELAYIP, ORPORT)
 print 'Opening Tor connection and creating a v3 link, circuit, and request cells'
 link_context = link_open(RELAYIP, ORPORT, link_version_list=[3])
-(link_context,
- circuit_context,
- sent_crypt_cells_bytes,
- sent_plain_cells_bytes,
- response_cells_bytes) = circuit_request_cell_list(link_context,
-                                                   [begindir_cell,
-                                                    request_cell],
-                                                   # don't shutdown yet
-                                                   do_shutdown=False)
-response_cells_bytes += circuit_read_cell_bytes(circuit_context)
+(link_context, circuit_context, _, _, response_cells_bytes) = circuit_request_cell_list(link_context, [begindir_cell, request_cell], do_shutdown=False)
 destroy_cell = circuit_close(circuit_context)
-sent_plain_cells_bytes += destroy_cell
-sent_crypt_cells_bytes += destroy_cell
+response_cells_bytes += circuit_read_cell_bytes(circuit_context)
+
 print '\nCells Received:\n{}'.format(format_cell_bytes(circuit_context,
                                                   response_cells_bytes,
                                                   is_cell_outbound_flag=False,
