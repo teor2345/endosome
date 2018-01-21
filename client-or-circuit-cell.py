@@ -8,6 +8,7 @@ import binascii
 import stem.client.cell
 
 from endosome import *
+from stem.client import AddrType, Address
 
 # The default IP and Port
 RELAYIP = '127.0.0.1'
@@ -24,7 +25,7 @@ REQUEST  = stem.client.cell.VersionsCell.pack(version_list)
 # [3, 4] for <= 0.3.0, [3, 4, 5] for >= 0.3.1.1-alpha
 remote_version_list = [3, 4]
 link_version = get_highest_common_version(version_list, remote_version_list)
-REQUEST += pack_netinfo_cell('127.0.0.1', link_version=link_version)
+REQUEST += stem.client.cell.NetinfoCell.pack(link_version, Address(AddrType.IPv4, '127.0.0.1'), [])
 # TODO: verify the certificates in the CERTS cell
 REQUEST += pack_create_fast_cell(get_min_valid_circ_id(link_version),
                                  link_version=link_version)

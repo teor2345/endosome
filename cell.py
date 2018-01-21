@@ -564,20 +564,6 @@ def pack_netinfo_payload(receiver_ip_string, sender_timestamp=None,
         payload_bytes += pack_address(sender_ip_string)
     return payload_bytes
 
-def pack_netinfo_cell(receiver_ip_string, sender_timestamp=None,
-                      sender_ip_list=None, link_version=None):
-    '''
-    Pack a fixed-length netinfo cell with sender_timestamp, receiver_ip_string,
-    and sender_ip_list, using link_version.
-    If sender_timestamp is None, uses the current time.
-    If sender_ip_list is None, no local IP addresses are sent..
-    '''
-    payload_bytes = pack_netinfo_payload(receiver_ip_string,
-                                   sender_timestamp=sender_timestamp,
-                                   sender_ip_list=sender_ip_list)
-    return pack_cell('NETINFO', payload_bytes=payload_bytes,
-                     link_version=link_version)
-
 def unpack_netinfo_payload(payload_len, payload_bytes,
                            hop_hash_context=None,
                            hop_crypt_context=None,

@@ -8,6 +8,7 @@ import binascii
 import stem.client.cell
 
 from endosome import *
+from stem.client import AddrType, Address
 
 # The default IP and Port
 RELAYIP = '127.0.0.1'
@@ -21,7 +22,7 @@ ORPORT = 12345
 version_list = [4]
 link_version = version_list[-1]
 REQUEST  = stem.client.cell.VersionsCell.pack(version_list)
-REQUEST += pack_netinfo_cell('127.0.0.1', link_version=link_version)
+REQUEST += stem.client.cell.NetinfoCell.pack(link_version, Address(AddrType.IPv4, '127.0.0.1'), [])
 
 print 'SSL Server: {}:{}'.format(RELAYIP, ORPORT)
 #print '\nRequest Bytes:\n{}'.format(binascii.hexlify(REQUEST))

@@ -12,6 +12,7 @@ import stem.socket
 
 from connect import *
 from cell import *
+from stem.client import AddrType, Address
 
 def get_link_version(context, force_link_version=None):
     '''
@@ -84,9 +85,7 @@ def link_open(ip, port, link_version_list=[3,4,5], send_netinfo=True):
     # Now we know the link version, send a netinfo cell
 
     if send_netinfo:
-        netinfo_cell_bytes = pack_netinfo_cell(ip, link_version=link_version)
-        conn.send(netinfo_cell_bytes)
-        # We don't expect anything in response to our NETINFO
+        conn.send(stem.client.cell.NetinfoCell.pack(link_version, Address(AddrType.IPv4, ip), []))
 
     return {
       'ssl_socket': conn,
