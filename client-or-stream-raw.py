@@ -39,9 +39,8 @@ request_cell = {
 print 'SSL Server: {}:{}'.format(RELAYIP, ORPORT)
 print 'Opening Tor connection and creating a v4 or v5 link, circuit, and request cells'
 link_context = link_open(RELAYIP, ORPORT)
-(link_context, circuit_context, _, _, _) = circuit_request_cell_list(link_context, [begindir_cell, request_cell], do_shutdown=False)
+(link_context, circuit_context, _, _, _) = circuit_request_cell_list(link_context, [begindir_cell, request_cell])
 
-destroy_cell = circuit_close(circuit_context)
 print '\nLink context:\n{}'.format(link_format_context(link_context))
 print '\nCircuit context:\n{}'.format(circuit_format_context(circuit_context))
 # We don't want to decrypt or re-digest outbound cells, so we pass None for
@@ -53,8 +52,7 @@ print '\nCircuit context:\n{}'.format(circuit_format_context(circuit_context))
 print 'SSL Server: {}:{}'.format(RELAYIP, ORPORT)
 print 'Opening Tor connection and creating a v3 link, circuit, and request cells'
 link_context = link_open(RELAYIP, ORPORT, link_version_list=[3])
-(link_context, circuit_context, _, _, response_cells_bytes) = circuit_request_cell_list(link_context, [begindir_cell, request_cell], do_shutdown=False)
-destroy_cell = circuit_close(circuit_context)
+(link_context, circuit_context, _, _, response_cells_bytes) = circuit_request_cell_list(link_context, [begindir_cell, request_cell])
 response_cells_bytes += circuit_read_cell_bytes(circuit_context)
 
 print '\nCells Received:\n{}'.format(format_cell_bytes(circuit_context,
