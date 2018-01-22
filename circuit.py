@@ -379,12 +379,9 @@ def circuit_close(context):
     link_context = get_connect_context(context)
     destroy_circ_id = circuit_context['circ_id']
 
-    link_cell = {
-      'cell_command_string': 'DESTROY',
-      'circ_id': destroy_circ_id,
-    }
+    cell_bytes = stem.client.cell.DestroyCell.pack(get_link_version(link_context), destroy_circ_id)
+    ssl_write(link_context, cell_bytes)
 
-    cell_bytes = link_write_cell_list(get_connect_context(link_context), [link_cell])
     # Enable re-use of the circuit id
     remove_circuit_context(link_context, circuit_context)
     return cell_bytes
