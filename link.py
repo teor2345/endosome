@@ -134,6 +134,7 @@ def link_write_cell_list(context,
     link_version = get_link_version(context, force_link_version)
     for cell in cell_list:
         cell_bytes += link_pack_cell(context, cell)
+
     ssl_write(context, cell_bytes)
     return cell_bytes
 

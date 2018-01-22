@@ -5,6 +5,8 @@
 
 # Circuit-level functions
 
+import stem.client.cell
+
 from connect import *
 from cell import *
 from link import *
@@ -165,15 +167,10 @@ def circuit_create(link_context):
     # If we don't do this check, we will hang when reading
     assert not is_circ_id_used(link_context, circ_id)
 
-    link_cell = {
-      'cell_command_string': 'CREATE_FAST',
-      'circ_id': circ_id,
-      'payload_bytes': pack_create_fast_payload(),
-    }
+    create_cell_bytes = stem.client.cell.CreateFastCell.pack(get_link_version(link_context), circ_id)
+    ssl_write(link_context, create_cell_bytes)
 
-    create_cell_bytes = link_write_cell_list(get_connect_context(link_context), [link_cell])
-    (_, create_cell_list) = unpack_cells_link(link_context,
-                                   create_cell_bytes)
+    (_, create_cell_list) = unpack_cells_link(link_context, create_cell_bytes)
     assert len(create_cell_list) == 1
     create_cell = create_cell_list[0]
     local_circ_id = create_cell['circ_id']

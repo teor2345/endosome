@@ -27,8 +27,7 @@ remote_version_list = [3, 4]
 link_version = get_highest_common_version(version_list, remote_version_list)
 REQUEST += stem.client.cell.NetinfoCell.pack(link_version, Address(AddrType.IPv4, '127.0.0.1'), [])
 # TODO: verify the certificates in the CERTS cell
-REQUEST += pack_create_fast_cell(get_min_valid_circ_id(link_version),
-                                 link_version=link_version)
+REQUEST += stem.client.cell.CreateFastCell.pack(link_version, get_min_valid_circ_id(link_version))
 
 print 'SSL Server: {}:{}'.format(RELAYIP, ORPORT)
 #print '\nRequest Bytes:\n{}'.format(binascii.hexlify(REQUEST))

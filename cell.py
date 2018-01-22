@@ -608,17 +608,6 @@ def pack_create_fast_payload():
     '''
     return os.urandom(HASH_LEN)
 
-def pack_create_fast_cell(circ_id, link_version=None):
-    '''
-    Pack HASH_LEN random bytes into a fixed-length CREATE_FAST cell,
-    opening circ_id using link_version.
-    This handshake should only be used after verifying the certificates
-    in the CERTS cell.
-    '''
-    return pack_cell('CREATE_FAST', circ_id=circ_id,
-                     payload_bytes=pack_create_fast_payload(),
-                     link_version=link_version)
-
 def unpack_create_fast_payload(payload_len, payload_bytes,
                                hop_hash_context=None,
                                hop_crypt_context=None,
