@@ -362,42 +362,6 @@ def get_highest_common_version(remote_link_version_list,
 # pack_auth_challenge_payload
 # unpack_auth_challenge_payload
 
-def pack_padding_payload():
-    '''
-    Pack a fixed-length padding cell's payload with random bytes.
-    (Tor uses zero bytes, which isn't what the spec says.)
-    See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n419
-        https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n1534
-        https://trac.torproject.org/projects/tor/ticket/22948
-    '''
-    return os.urandom(MAX_FIXED_PAYLOAD_LEN)
-
-def pack_padding_cell(link_version=None):
-    '''
-    Pack a fixed-length padding cell with random bytes, using link_version.
-    '''
-    return pack_cell('PADDING',
-                     payload_bytes=pack_padding_payload(),
-                     link_version=link_version)
-
-def pack_vpadding_payload(payload_len):
-    '''
-    Pack a variable-length padding cell's payload with payload_len random
-    bytes.
-    See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n419
-        https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n1534
-    '''
-    return os.urandom(payload_len)
-
-def pack_vpadding_cell(payload_len, link_version=None):
-    '''
-    Pack a variable-length padding cell with payload_len random bytes,
-    using link_version.
-    '''
-    return pack_cell('VPADDING',
-                     payload_bytes=pack_vpadding_payload(payload_len),
-                     link_version=link_version)
-
 RESOLVE_TYPE_LEN = 1
 RESOLVE_VALUE_LENGTH_LEN = 1
 RESOLVE_TTL_LEN = 4

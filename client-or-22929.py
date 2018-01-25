@@ -21,7 +21,7 @@ ORPORT = 12345
 # VERSIONS, CERTS, AUTH_CHALLENGE
 
 version_list = [3]
-REQUEST  = pack_padding_cell()
+REQUEST = stem.client.cell.PaddingCell.pack(version_list[0])
 REQUEST += stem.client.cell.VersionsCell.pack(version_list)
 
 print 'SSL Server: {}:{}'.format(RELAYIP, ORPORT)
@@ -42,7 +42,7 @@ print 'Response Cells:\n{}'.format(format_cells(response, version_list))
 version_list = [4]
 # You can send as many of these as you like. No, really, as many as you like.
 #
-REQUEST  = pack_vpadding_cell(0) * 5000
+REQUEST = stem.client.cell.VPaddingCell.pack(version_list[0], 0) * 5000
 REQUEST += stem.client.cell.VersionsCell.pack(version_list)
 
 print 'SSL Server: {}:{}'.format(RELAYIP, ORPORT)
@@ -58,8 +58,8 @@ print 'Response Cells:\n{}'.format(format_cells(response, version_list))
 # VERSIONS, CERTS, AUTH_CHALLENGE
 
 version_list = [4]
-REQUEST  = pack_vpadding_cell(0)
-REQUEST += pack_padding_cell()
+REQUEST = stem.client.cell.VPaddingCell.pack(version_list[0], 0)
+REQUEST += stem.client.cell.PaddingCell.pack(version_list[0])
 REQUEST += stem.client.cell.VersionsCell.pack(version_list)
 
 print 'SSL Server: {}:{}'.format(RELAYIP, ORPORT)
