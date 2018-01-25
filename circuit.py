@@ -110,20 +110,6 @@ def add_circuit_context(link_context, circuit_context):
     link_context['circuits'][circ_id] = circuit_context
     assert is_circ_id_used(link_context, circ_id)
 
-def remove_circuit_context(link_context, circuit_context):
-    '''
-    Remove circuit_context from link_context.
-    '''
-    link_context = get_connect_context(link_context)
-    circuit_context = get_circuit_context(circuit_context)
-    # This breaks the circular dependency created by add_circuit_context()
-    circ_id = circuit_context['circ_id']
-    assert is_circ_id_used(link_context, circ_id)
-    del link_context['circuits'][circ_id]
-    # we can't delete this, because decryption relies on it
-    #del circuit_context['link']
-    assert not is_circ_id_used(link_context, circ_id)
-
 # See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n997
 KH_LEN = HASH_LEN
 DF_LEN = HASH_LEN
@@ -370,22 +356,6 @@ def circuit_read_cell_bytes(context):
     link_context = get_connect_context(context)
     return link_read_cell_bytes(link_context)
 
-def circuit_close(context):
-    '''
-    Close the circuit in context using a DESTROY cell.
-    Returns the result of link_write_cell_list().
-    '''
-    circuit_context = get_circuit_context(context)
-    link_context = get_connect_context(context)
-    destroy_circ_id = circuit_context['circ_id']
-
-    cell_bytes = stem.client.cell.DestroyCell.pack(get_link_version(link_context), destroy_circ_id)
-    ssl_write(link_context, cell_bytes)
-
-    # Enable re-use of the circuit id
-    remove_circuit_context(link_context, circuit_context)
-    return cell_bytes
-
 def circuit_request_cell_list(link_context,
                               cell_list,
                               do_shutdown=True):
@@ -406,7 +376,11 @@ def circuit_request_cell_list(link_context,
     if len(cell_list) > 0:
         response_cells_bytes = circuit_read_cell_bytes(circuit_context)
     if do_shutdown:
-        sent_destroy_cell_bytes = circuit_close(circuit_context)
+        circ_id = circuit_context['circ_id']
+        sent_destroy_cell_bytes = stem.client.cell.DestroyCell.pack(get_link_version(link_context), circ_id)
+        ssl_write(link_context, sent_destroy_cell_bytes)
+        del link_context['circuits'][circ_id]
+
         sent_crypt_cells_bytes += sent_destroy_cell_bytes
         sent_plain_cells_bytes += sent_destroy_cell_bytes
         # we don't expect a response to a DESTROY
