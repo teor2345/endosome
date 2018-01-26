@@ -133,7 +133,10 @@ def link_write_cell_list(context,
     cell_bytes = bytearray()
     link_version = get_link_version(context, force_link_version)
     for cell in cell_list:
-        cell_bytes += link_pack_cell(context, cell)
+        if isinstance(cell, stem.client.cell.Cell):
+            cell_bytes = cell.pack(link_version)
+        else:
+            cell_bytes += link_pack_cell(context, cell)
 
     ssl_write(context, cell_bytes)
     return cell_bytes
@@ -145,17 +148,6 @@ def link_read_cell_bytes(context):
     '''
     context = get_connect_context(context)
     return ssl_read(context)
-
-def link_close(context,
-               do_shutdown=True):
-    '''
-    Closes the Tor link in context.
-    If do_shutdown is True, shut down communication on the socket immediately,
-    rather than waiting for the system to potentially clear buffers.
-    '''
-    # There is no Tor cell command for closing a link
-    context = get_connect_context(context)
-    ssl_close(context, do_shutdown)
 
 def link_request_cell_list(ip, port,
                            cell_list,
@@ -175,5 +167,5 @@ def link_request_cell_list(ip, port,
     response_cell_bytes = bytearray()
     if len(cell_list) > 0:
         response_cell_bytes = link_read_cell_bytes(context)
-    link_close(context, True)
+    ssl_close(context)
     return (context, response_cell_bytes)
