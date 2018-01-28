@@ -148,98 +148,70 @@ def circuit_create(link_context):
     link_context = get_connect_context(link_context)
     # choose an unused circuit id, not just the lowest one
     circ_id = get_unused_circ_id(link_context, is_initiator_flag=True)
+    link_version = get_link_version(link_context)
 
     # Relays drop create cells for circuit ids that are in use
     # If we don't do this check, we will hang when reading
     assert not is_circ_id_used(link_context, circ_id)
 
     create_fast_cell = stem.client.cell.CreateFastCell(circ_id)
-    create_fast_cell_bytes = create_fast_cell.pack(get_link_version(link_context))
+    create_fast_cell_bytes = create_fast_cell.pack(link_version)
     ssl_write(link_context, create_fast_cell_bytes)
 
-    # Read and parse the response
-    # You will hang here if you send a duplicate circuit ID
-    created_cell_bytes = link_read_cell_bytes(link_context)
-    (_, cell_list) = unpack_cells_link(link_context, created_cell_bytes)
-    # Now find the created cell
-    created_fast_found = False
-    for cell in cell_list:
-        # Find the create cell, and add it to the circuit context
-        cell_command_string = cell['cell_command_string']
-        if cell_command_string.startswith('CREATED'):
-            created_cell = cell
-            remote_circ_id = created_cell['circ_id']
-            assert remote_circ_id == circ_id
-            if cell_command_string == 'CREATED_FAST':
-                created_fast_found = True
-                KH_bytes = created_cell['KH_bytes']
-                Y_bytes = created_cell['Y_bytes']
-                # K0=X|Y
-                # See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n1007
-                K0_bytes = create_fast_cell.key_material + Y_bytes
-                # Create the circuit material using a KDF
-                temp_bytes = kdf_tor(K0_bytes, KDF_TOR_LEN)
-                # Extract the circuit material
-                (expected_KH_bytes, temp_bytes) = split(temp_bytes, KH_LEN)
-                assert KH_bytes == expected_KH_bytes
+    response = stem.client.cell.Cell.unpack(link_context['ssl_socket'].recv(), link_version)
+    created_fast_cells = filter(lambda cell: isinstance(cell, stem.client.cell.CreatedFastCell), response)
 
-                (Df_bytes, temp_bytes) = split(temp_bytes, DF_LEN)
-                (Db_bytes, temp_bytes) = split(temp_bytes, DB_LEN)
-                (Kf_bytes, temp_bytes) = split(temp_bytes, KF_LEN)
-                (Kb_bytes, temp_bytes) = split(temp_bytes, KB_LEN)
-                #print "Df: " + binascii.hexlify(Df_bytes)
-                #print "Db: " + binascii.hexlify(Db_bytes)
-                #print "Kf: " + binascii.hexlify(Kf_bytes)
-                #print "Kb: " + binascii.hexlify(Kb_bytes)
-                # Seed the hash digests
-                Df_hash = hash_create()
-                Df_hash = hash_update(Df_hash, Df_bytes)
-                Db_hash = hash_create()
-                Db_hash = hash_update(Db_hash, Db_bytes)
-                # Create the crypto contexts
-                Kf_crypt = crypt_create(Kf_bytes, is_encrypt_flag=True)
-                Kb_crypt = crypt_create(Kb_bytes, is_encrypt_flag=False)
-            else:
-                # TODO: TAP & ntor handshakes, which need onion keys from
-                # descriptors
-                raise ValueError("{} not yet implemented"
-                                 .format(cell_command_string))
-            # we found the CREATED cell, so stop looking
-            break
+    if not created_fast_cells:
+      raise ValueError('We should get a CREATED_FAST response from a CREATE_FAST request')
 
-    # If we don't have the fields we need to continue using the circuit, we
-    # will assert here when we try to find them, or later when we try to use
-    # them
+    created_fast_cell = created_fast_cells[0]
+    KH_bytes = created_fast_cell.derivative_key
+    Y_bytes = created_fast_cell.key_material
 
-    # Create the circuit context
+    # K0=X|Y
+    # See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n1007
+    K0_bytes = create_fast_cell.key_material + Y_bytes
+
+    # Create the circuit material using a KDF
+    temp_bytes = kdf_tor(K0_bytes, KDF_TOR_LEN)
+
+    # Extract the circuit material
+    (expected_KH_bytes, temp_bytes) = split(temp_bytes, KH_LEN)
+    assert KH_bytes == expected_KH_bytes
+
+    (Df_bytes, temp_bytes) = split(temp_bytes, DF_LEN)
+    (Db_bytes, temp_bytes) = split(temp_bytes, DB_LEN)
+    (Kf_bytes, temp_bytes) = split(temp_bytes, KF_LEN)
+    (Kb_bytes, temp_bytes) = split(temp_bytes, KB_LEN)
+    #print "Df: " + binascii.hexlify(Df_bytes)
+    #print "Db: " + binascii.hexlify(Db_bytes)
+    #print "Kf: " + binascii.hexlify(Kf_bytes)
+    #print "Kb: " + binascii.hexlify(Kb_bytes)
+    # Seed the hash digests
+    Df_hash = hash_create()
+    Df_hash = hash_update(Df_hash, Df_bytes)
+    Db_hash = hash_create()
+    Db_hash = hash_update(Db_hash, Db_bytes)
+    # Create the crypto contexts
+    Kf_crypt = crypt_create(Kf_bytes, is_encrypt_flag=True)
+    Kb_crypt = crypt_create(Kb_bytes, is_encrypt_flag=False)
+
     circuit_context = {
-        # circuit
-        'circ_id'            : circ_id,
-        'link'               : link_context,
-        'create_cell_bytes'  : create_fast_cell_bytes,
-        }
-
-    if created_fast_found:
-        extra_context = {
-            # hop
-            # TODO: multi-hop circuits: next_hop_context and
-            # previous_hop_context?
-            # Or a hop array?
-            'K0_bytes'           : K0_bytes,
-            'KH_bytes'           : KH_bytes,
-            'Df_bytes'           : Df_bytes,
-            'Df_hash'            : Df_hash,
-            'Db_bytes'           : Db_bytes,
-            'Db_hash'            : Db_hash,
-            'Kf_bytes'           : Kf_bytes,
-            'Kf_crypt'           : Kf_crypt,
-            'Kb_bytes'           : Kb_bytes,
-            'Kb_crypt'           : Kb_crypt,
-            'created_cell_bytes' : created_cell_bytes,
-            }
-        circuit_context.update(extra_context)
-    else:
-        print "Error: CREATED_FAST cell not received from remote OR"
+      'circ_id'            : circ_id,
+      'link'               : link_context,
+      'create_cell_bytes'  : create_fast_cell_bytes,
+      'K0_bytes'           : K0_bytes,
+      'KH_bytes'           : KH_bytes,
+      'Df_bytes'           : Df_bytes,
+      'Df_hash'            : Df_hash,
+      'Db_bytes'           : Db_bytes,
+      'Db_hash'            : Db_hash,
+      'Kf_bytes'           : Kf_bytes,
+      'Kf_crypt'           : Kf_crypt,
+      'Kb_bytes'           : Kb_bytes,
+      'Kb_crypt'           : Kb_crypt,
+      'created_cell_bytes' : created_fast_cell.pack(link_version),
+    }
 
     add_circuit_context(link_context, circuit_context)
     return circuit_context

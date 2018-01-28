@@ -487,31 +487,6 @@ def pack_create_fast_payload():
 
 # TODO: pack_created_fast_cell
 
-def unpack_created_fast_payload(payload_len, payload_bytes,
-                                hop_hash_context=None,
-                                hop_crypt_context=None,
-                                validate=None):
-    '''
-    Unpack Y and KH from a CREATED_FAST payload.
-    Ignores the contexts and validate.
-    Returns a dict containing these keys:
-        'Y_bytes'  : the server's key material
-        'KH_bytes' : a hash proving that the server knows the shared key
-    Asserts if payload_bytes is not payload_len long.
-    Asserts if payload_len is less than HASH_LEN*2.
-    See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n962
-        https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n997
-    '''
-    assert len(payload_bytes) == payload_len
-    assert payload_len >= HASH_LEN*2
-    remaining_bytes = payload_bytes
-    (Y_bytes,  remaining_bytes) = split(remaining_bytes, HASH_LEN)
-    (KH_bytes, remaining_bytes) = split(remaining_bytes, HASH_LEN)
-    return {
-        'Y_bytes'  : Y_bytes,
-        'KH_bytes' : KH_bytes,
-        }
-
 # Relay cell packing and unpacking
 # this depends on unpack_cell_header(), and is used by unpack_cell()
 
@@ -1051,7 +1026,7 @@ CELL_UNPACK = {
     'RELAY'             : unpack_relay_payload,
 #   'DESTROY'           : unpack_destroy_payload,
 #   'CREATE_FAST'       : unpack_create_fast_payload,
-    'CREATED_FAST'      : unpack_created_fast_payload,
+#   'CREATED_FAST'      : unpack_created_fast_payload,
 
     'NETINFO'           : unpack_netinfo_payload,
     'RELAY_EARLY'       : unpack_relay_payload,
