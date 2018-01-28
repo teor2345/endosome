@@ -485,25 +485,6 @@ def pack_create_fast_payload():
     '''
     return os.urandom(HASH_LEN)
 
-def unpack_create_fast_payload(payload_len, payload_bytes,
-                               hop_hash_context=None,
-                               hop_crypt_context=None,
-                               validate=None):
-    '''
-    Unpack X from a CREATE_FAST payload.
-    Ignores the contexts and validate.
-    Returns a dict containing this key:
-        'X_bytes' : the client's key material
-    Asserts if payload_bytes is not payload_len long.
-    Asserts if payload_len is less than HASH_LEN.
-    See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n962
-    '''
-    assert len(payload_bytes) == payload_len
-    (X_bytes, _) = split(payload_bytes, HASH_LEN)
-    return {
-        'X_bytes' : X_bytes,
-        }
-
 # TODO: pack_created_fast_cell
 
 def unpack_created_fast_payload(payload_len, payload_bytes,
@@ -1069,7 +1050,7 @@ CELL_UNPACK = {
 #   'CREATED'           : unpack_created_payload,
     'RELAY'             : unpack_relay_payload,
 #   'DESTROY'           : unpack_destroy_payload,
-    'CREATE_FAST'       : unpack_create_fast_payload,
+#   'CREATE_FAST'       : unpack_create_fast_payload,
     'CREATED_FAST'      : unpack_created_fast_payload,
 
     'NETINFO'           : unpack_netinfo_payload,

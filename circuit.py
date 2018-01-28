@@ -153,17 +153,9 @@ def circuit_create(link_context):
     # If we don't do this check, we will hang when reading
     assert not is_circ_id_used(link_context, circ_id)
 
-    create_cell_bytes = stem.client.cell.CreateFastCell(circ_id).pack(get_link_version(link_context))
-    ssl_write(link_context, create_cell_bytes)
-
-    (_, create_cell_list) = unpack_cells_link(link_context, create_cell_bytes)
-    assert len(create_cell_list) == 1
-    create_cell = create_cell_list[0]
-    local_circ_id = create_cell['circ_id']
-    X_bytes = create_cell['X_bytes']
-
-    # Make sure we sent a cell, if not, we will hang when reading
-    assert local_circ_id is not None
+    create_fast_cell = stem.client.cell.CreateFastCell(circ_id)
+    create_fast_cell_bytes = create_fast_cell.pack(get_link_version(link_context))
+    ssl_write(link_context, create_fast_cell_bytes)
 
     # Read and parse the response
     # You will hang here if you send a duplicate circuit ID
@@ -177,16 +169,14 @@ def circuit_create(link_context):
         if cell_command_string.startswith('CREATED'):
             created_cell = cell
             remote_circ_id = created_cell['circ_id']
-            assert remote_circ_id == local_circ_id
-            # if our circuit requests get out of order, nothing will work
-            assert local_circ_id == remote_circ_id
+            assert remote_circ_id == circ_id
             if cell_command_string == 'CREATED_FAST':
                 created_fast_found = True
                 KH_bytes = created_cell['KH_bytes']
                 Y_bytes = created_cell['Y_bytes']
                 # K0=X|Y
                 # See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n1007
-                K0_bytes = X_bytes + Y_bytes
+                K0_bytes = create_fast_cell.key_material + Y_bytes
                 # Create the circuit material using a KDF
                 temp_bytes = kdf_tor(K0_bytes, KDF_TOR_LEN)
                 # Extract the circuit material
@@ -224,9 +214,9 @@ def circuit_create(link_context):
     # Create the circuit context
     circuit_context = {
         # circuit
-        'circ_id'            : local_circ_id,
+        'circ_id'            : circ_id,
         'link'               : link_context,
-        'create_cell_bytes'  : create_cell_bytes,
+        'create_cell_bytes'  : create_fast_cell_bytes,
         }
 
     if created_fast_found:
