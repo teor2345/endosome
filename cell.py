@@ -505,29 +505,6 @@ def pack_resolve(address=None, error_type=None, ttl=None):
 
 # TODO: unpack_resolve
 
-def pack_netinfo_payload(receiver_ip_string, sender_timestamp=None,
-                         sender_ip_list=None):
-    '''
-    Pack a netinfo payload with sender_timestamp, receiver_ip_string,
-    and sender_ip_list, using link_version.
-    If sender_timestamp is None, uses the current time.
-    If sender_ip_list is None, no local IP addresses are sent..
-    See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n684
-        https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n1480
-    '''
-    if sender_timestamp is None:
-        sender_timestamp = int(time.time())
-    if sender_ip_list is None:
-        sender_ip_list = []
-    payload_bytes  = Size.LONG.pack(sender_timestamp)
-    payload_bytes += pack_address(receiver_ip_string)
-    payload_bytes += Size.CHAR.pack(len(sender_ip_list))
-    # The caller should ensure an IPv4 address is first
-    # See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n1503
-    for sender_ip_string in sender_ip_list:
-        payload_bytes += pack_address(sender_ip_string)
-    return payload_bytes
-
 def unpack_netinfo_payload(payload_len, payload_bytes,
                            hop_hash_context=None,
                            hop_crypt_context=None,

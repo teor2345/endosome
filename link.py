@@ -85,7 +85,7 @@ def link_open(ip, port, link_version_list=[3,4,5], send_netinfo=True):
     # Now we know the link version, send a netinfo cell
 
     if send_netinfo:
-        conn.send(stem.client.cell.NetinfoCell(Address(AddrType.IPv4, ip), []).pack(link_version))
+        conn.send(stem.client.cell.NetinfoCell(Address(ip, AddrType.IPv4), []).pack(link_version))
 
     return {
       'ssl_socket': conn,
