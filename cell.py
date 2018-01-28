@@ -367,12 +367,8 @@ RESOLVE_VALUE_LENGTH_LEN = 1
 RESOLVE_TTL_LEN = 4
 RESOLVE_ERROR_VALUE_LEN = 0
 
-# See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n1480
-HOST_ADDRESS_TYPE            = 0x00
 IPV4_ADDRESS_TYPE            = 0x04
 IPV6_ADDRESS_TYPE            = 0x06
-TRANSIENT_ERROR_ADDRESS_TYPE = 0xF0
-PERMANENT_ERROR_ADDRESS_TYPE = 0xF1
 
 IPV4_ADDRESS_LEN =  4
 IPV6_ADDRESS_LEN = 16
@@ -380,44 +376,6 @@ IPV6_ADDRESS_LEN = 16
 MIN_RESOLVE_HEADER_LEN = RESOLVE_TYPE_LEN + RESOLVE_VALUE_LENGTH_LEN
 MIN_ADDRESS_LEN = MIN_RESOLVE_HEADER_LEN + IPV4_ADDRESS_LEN
 MIN_RESOLVE_LEN = MIN_RESOLVE_HEADER_LEN + RESOLVE_TTL_LEN
-
-def pack_resolve_error(error_type):
-    '''
-    Returns a packed address error_type value.
-    See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n1480
-        https://trac.torproject.org/projects/tor/ticket/22937
-    '''
-    result  = Size.CHAR.pack(error_type)
-    result += Size.CHAR.pack(RESOLVE_ERROR_VALUE_LEN)
-
-# TODO: unpack_resolve_error
-
-def pack_address(address):
-    '''
-    Returns a packed address.
-    See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n1480
-        https://trac.torproject.org/projects/tor/ticket/22937
-    '''
-    try:
-        addr_value = ipaddress.ip_address(unicode(address))
-        addr_type = addr_value.version
-        if addr_type == IPV4_ADDRESS_TYPE:
-            addr_len = IPV4_ADDRESS_LEN
-            addr_bytes = ipaddress.v4_int_to_packed(int(addr_value))
-        else:
-            addr_len = IPV6_ADDRESS_LEN
-            addr_bytes = ipaddress.v6_int_to_packed(int(addr_value))
-    except ValueError:
-        # must be a hostname
-        addr_bytes = address
-        addr_type = HOST_ADDRESS_TYPE
-        addr_len = len(address)
-
-    result  = Size.CHAR.pack(addr_type)
-    result += Size.CHAR.pack(addr_len)
-    assert len(addr_bytes) == addr_len
-    result += addr_bytes
-    return result
 
 def get_addr_type_len(addr_type):
     '''
@@ -480,28 +438,6 @@ def unpack_address(data_bytes):
     assert len(data_bytes) >= addr_len
     assert addr_len == get_addr_type_len(addr_type)
     return unpack_ip_address_bytes(temp_bytes, addr_type)
-
-def pack_resolve(address=None, error_type=None, ttl=None):
-    '''
-    Returns a packed address and ttl, or an error_type value and TTL.
-    If ttl is None, the TTL field is left out of the result.
-    Exactly one of address and error_type must be None.
-    Raises a ValueError if this condition is not satisfied.
-    See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n1480
-    '''
-    # Find the type
-    # Exactly one of these must be None
-    if address is None and error_type is None:
-        raise ValueError('Must supply exactly one of address or error_type')
-    elif address is not None:
-        result = pack_address(address, ttl)
-    elif error_type is not None:
-        result = pack_resolve_error(error_type, ttl)
-    else:
-        raise ValueError('Must supply exactly one of address or error_type')
-    if ttl is not None:
-        result += Size.LONG.pack(ttl)
-    return result
 
 # TODO: unpack_resolve
 
