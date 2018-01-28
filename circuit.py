@@ -100,8 +100,6 @@ def circuit_create(link_context):
     Returns a context dictionary required to continue using the circuit:
         'circ_id'            : the circuit id for this circuit
         'link'               : the link context for this circuit
-    And the first hop request (TODO: put these in a different structure):
-        'create_cell_bytes'  : the create cell sent to establish the circuit
     And response: (missing if there is no response)
         'K0_bytes'           : the shared key for the circuit
         'KH_bytes'           : a hash that shows the remote side knows K0
@@ -113,7 +111,6 @@ def circuit_create(link_context):
         'Kf_crypt'           : the forward encryption context, key Kf_bytes
         'Kb_bytes'           : the backward encryption key, derived from K0
         'Kb_crypt'           : the backward decryption context, key Kb_bytes
-        'created_cell_bytes' : the created cell received in response
     Also adds the following entries to the link context:
        'circuits'            : a dictionary containing the circuits on this
                                link, keyed by circuit id
@@ -130,8 +127,7 @@ def circuit_create(link_context):
     assert not is_circ_id_used(link_context, circ_id)
 
     create_fast_cell = stem.client.cell.CreateFastCell(circ_id)
-    create_fast_cell_bytes = create_fast_cell.pack(link_version)
-    ssl_write(link_context, create_fast_cell_bytes)
+    ssl_write(link_context, create_fast_cell.pack(link_version))
 
     response = stem.client.cell.Cell.unpack(link_context['ssl_socket'].recv(), link_version)
     created_fast_cells = filter(lambda cell: isinstance(cell, stem.client.cell.CreatedFastCell), response)
@@ -174,7 +170,6 @@ def circuit_create(link_context):
     circuit_context = {
       'circ_id'            : circ_id,
       'link'               : link_context,
-      'create_cell_bytes'  : create_fast_cell_bytes,
       'K0_bytes'           : K0_bytes,
       'KH_bytes'           : KH_bytes,
       'Df_bytes'           : Df_bytes,
@@ -185,7 +180,6 @@ def circuit_create(link_context):
       'Kf_crypt'           : Kf_crypt,
       'Kb_bytes'           : Kb_bytes,
       'Kb_crypt'           : Kb_crypt,
-      'created_cell_bytes' : created_fast_cell.pack(link_version),
     }
 
     link_context.setdefault('circuits', {})
