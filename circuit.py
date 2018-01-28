@@ -13,15 +13,6 @@ from link import *
 
 from stem.client import split
 
-def get_circuit_context(context):
-    '''
-    Return the circuit context in context.
-    '''
-    # If it doesn't have a link, it's not a circuit context
-    assert 'link' in context
-    # TODO: extract circuit contexts from stream contexts
-    return context
-
 def get_circuit_or_link_context(context):
     '''
     Return a circuit or link context from context, preferring a circuit
@@ -37,7 +28,6 @@ def circuit_get_crypt_context(context,
     based on is_cell_outbound_flag.
     '''
     assert is_cell_outbound_flag is not None
-    context = get_circuit_context(context)
     if is_cell_outbound_flag:
         return (context['Df_hash'], context['Kf_crypt'])
     else:
@@ -52,7 +42,6 @@ def circuit_set_crypt_context(context,
     is_cell_outbound_flag.
     '''
     assert is_cell_outbound_flag is not None
-    context = get_circuit_context(context)
     if is_cell_outbound_flag:
         context['Df_hash'] = hop_hash_context
         # Setting the crypt context is redundant, since the crypt context is
@@ -95,20 +84,6 @@ def get_unused_circ_id(context, is_initiator_flag=True,
         circ_id += 1
         assert circ_id < get_max_valid_circ_id(link_version)
     return circ_id
-
-def add_circuit_context(link_context, circuit_context):
-    '''
-    Add circuit_context to link_context.
-    '''
-    link_context = get_connect_context(link_context)
-    circuit_context = get_circuit_context(circuit_context)
-    # This creates a circular reference, which modern python GCs can handle
-    circ_id = circuit_context['circ_id']
-    assert not is_circ_id_used(link_context, circ_id)
-    circuit_context['link'] = link_context
-    link_context.setdefault('circuits', {})
-    link_context['circuits'][circ_id] = circuit_context
-    assert is_circ_id_used(link_context, circ_id)
 
 # See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n997
 KH_LEN = HASH_LEN
@@ -213,7 +188,10 @@ def circuit_create(link_context):
       'created_cell_bytes' : created_fast_cell.pack(link_version),
     }
 
-    add_circuit_context(link_context, circuit_context)
+    link_context.setdefault('circuits', {})
+    link_context['circuits'][circ_id] = circuit_context
+    assert is_circ_id_used(link_context, circ_id)
+
     return circuit_context
 
 def circuit_crypt_cell_payload(context,
@@ -228,7 +206,6 @@ def circuit_crypt_cell_payload(context,
     Returns cell with a crypted cell payload, the new hop_hash_context,
     the modified hop_crypt_context, and the packed, plaintext cell bytes.
     '''
-    context = get_circuit_context(context)
     relay_command_string = cell['relay_command_string']
     stream_id = cell.get('stream_id')
     relay_payload_bytes = cell.get('relay_payload_bytes')
@@ -281,7 +258,6 @@ def circuit_write_cell_list(context, cell_list):
     The returned cell list includes circ_id and encrypted payload_bytes for
     each cell.
     '''
-    context = get_circuit_context(context)
     sent_cell_list = []
     plain_cells_bytes = bytearray()
     # Assume we're a client

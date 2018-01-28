@@ -183,7 +183,6 @@ def circuit_format_context(context,
     Formats a circuit context using format_context().
     Returns a string formatted according to the arguments.
     '''
-    context = get_circuit_context(context)
     link_version = get_link_version(context, force_link_version)
     return format_context(context,
                           link_version=link_version,
