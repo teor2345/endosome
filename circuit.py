@@ -153,7 +153,7 @@ def circuit_create(link_context):
     # If we don't do this check, we will hang when reading
     assert not is_circ_id_used(link_context, circ_id)
 
-    create_cell_bytes = stem.client.cell.CreateFastCell.pack(get_link_version(link_context), circ_id)
+    create_cell_bytes = stem.client.cell.CreateFastCell(circ_id).pack(get_link_version(link_context))
     ssl_write(link_context, create_cell_bytes)
 
     (_, create_cell_list) = unpack_cells_link(link_context, create_cell_bytes)
@@ -377,7 +377,7 @@ def circuit_request_cell_list(link_context,
         response_cells_bytes = circuit_read_cell_bytes(circuit_context)
     if do_shutdown:
         circ_id = circuit_context['circ_id']
-        sent_destroy_cell_bytes = stem.client.cell.DestroyCell.pack(get_link_version(link_context), circ_id)
+        sent_destroy_cell_bytes = stem.client.cell.DestroyCell(circ_id).pack(get_link_version(link_context))
         ssl_write(link_context, sent_destroy_cell_bytes)
         del link_context['circuits'][circ_id]
 

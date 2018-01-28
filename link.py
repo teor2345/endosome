@@ -74,7 +74,7 @@ def link_open(ip, port, link_version_list=[3,4,5], send_netinfo=True):
     '''
 
     conn = stem.socket.RelaySocket(ip, port)
-    conn.send(stem.client.cell.VersionsCell.pack(link_version_list))
+    conn.send(stem.client.cell.VersionsCell(link_version_list).pack())
 
     # From the VERSIONS reply determine the highest protocol version we both
     # support. Following cells are ignored since we don't use them.
@@ -85,7 +85,7 @@ def link_open(ip, port, link_version_list=[3,4,5], send_netinfo=True):
     # Now we know the link version, send a netinfo cell
 
     if send_netinfo:
-        conn.send(stem.client.cell.NetinfoCell.pack(link_version, Address(AddrType.IPv4, ip), []))
+        conn.send(stem.client.cell.NetinfoCell(Address(AddrType.IPv4, ip), []).pack(link_version))
 
     return {
       'ssl_socket': conn,

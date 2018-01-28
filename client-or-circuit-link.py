@@ -27,7 +27,12 @@ netinfo_cell = {
 cell_list.append(netinfo_cell)
 create_fast_payload=pack_create_fast_payload()
 
-cell_list.append(stem.client.cell.CreateFastCell())
+# TODO: Tor has some complications about the circuit id we should create. In
+# link protocols 1-3 the most significant bit should be set if our public key
+# is larger than theirs (ie, this should be 0x80000000). In link protocol 4
+# and higher the MSB is set if we're the initiator of the connection.
+
+cell_list.append(stem.client.cell.CreateFastCell(1))
 
 # Try the default set of link versions: we will get 4 or 5, depending on
 # the Tor version
