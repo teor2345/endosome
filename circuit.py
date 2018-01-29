@@ -102,7 +102,6 @@ def circuit_create(link_context):
         'link'               : the link context for this circuit
     And response: (missing if there is no response)
         'K0_bytes'           : the shared key for the circuit
-        'KH_bytes'           : a hash that shows the remote side knows K0
         'Df_bytes'           : the forward digest seed, derived from K0
         'Df_hash'            : the forward digest hash, seeded with Df_bytes
         'Db_bytes'           : the backward digest seed, derived from K0
@@ -136,7 +135,6 @@ def circuit_create(link_context):
       raise ValueError('We should get a CREATED_FAST response from a CREATE_FAST request')
 
     created_fast_cell = created_fast_cells[0]
-    KH_bytes = created_fast_cell.derivative_key
     Y_bytes = created_fast_cell.key_material
 
     # K0=X|Y
@@ -148,7 +146,9 @@ def circuit_create(link_context):
 
     # Extract the circuit material
     (expected_KH_bytes, temp_bytes) = split(temp_bytes, KH_LEN)
-    assert KH_bytes == expected_KH_bytes
+
+    if created_fast_cell.derivative_key != expected_KH_bytes:
+      raise ValueError('Remote failed to prove that it knows our shared key')
 
     (Df_bytes, temp_bytes) = split(temp_bytes, DF_LEN)
     (Db_bytes, temp_bytes) = split(temp_bytes, DB_LEN)
@@ -171,7 +171,6 @@ def circuit_create(link_context):
       'circ_id'            : circ_id,
       'link'               : link_context,
       'K0_bytes'           : K0_bytes,
-      'KH_bytes'           : KH_bytes,
       'Df_bytes'           : Df_bytes,
       'Df_hash'            : Df_hash,
       'Db_bytes'           : Db_bytes,
