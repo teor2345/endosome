@@ -141,42 +141,31 @@ def circuit_create(link_context):
     K0_bytes = create_fast_cell.key_material + created_fast_cell.key_material
 
     # Create the circuit material using a KDF
-    temp_bytes = stem.client.kdf_tor(K0_bytes)
+    kdf = stem.client.KDF(K0_bytes)
 
-    # Extract the circuit material
-    (expected_KH_bytes, temp_bytes) = split(temp_bytes, KH_LEN)
-
-    if created_fast_cell.derivative_key != expected_KH_bytes:
+    if created_fast_cell.derivative_key != kdf.key_hash:
       raise ValueError('Remote failed to prove that it knows our shared key')
 
-    (Df_bytes, temp_bytes) = split(temp_bytes, DF_LEN)
-    (Db_bytes, temp_bytes) = split(temp_bytes, DB_LEN)
-    (Kf_bytes, temp_bytes) = split(temp_bytes, KF_LEN)
-    (Kb_bytes, temp_bytes) = split(temp_bytes, KB_LEN)
-    #print "Df: " + binascii.hexlify(Df_bytes)
-    #print "Db: " + binascii.hexlify(Db_bytes)
-    #print "Kf: " + binascii.hexlify(Kf_bytes)
-    #print "Kb: " + binascii.hexlify(Kb_bytes)
     # Seed the hash digests
     Df_hash = hash_create()
-    Df_hash = hash_update(Df_hash, Df_bytes)
+    Df_hash = hash_update(Df_hash, kdf.forward_digest)
     Db_hash = hash_create()
-    Db_hash = hash_update(Db_hash, Db_bytes)
+    Db_hash = hash_update(Db_hash, kdf.backward_digest)
     # Create the crypto contexts
-    Kf_crypt = crypt_create(Kf_bytes, is_encrypt_flag=True)
-    Kb_crypt = crypt_create(Kb_bytes, is_encrypt_flag=False)
+    Kf_crypt = crypt_create(kdf.forward_key, is_encrypt_flag=True)
+    Kb_crypt = crypt_create(kdf.backward_key, is_encrypt_flag=False)
 
     circuit_context = {
       'circ_id'            : circ_id,
       'link'               : link_context,
       'K0_bytes'           : K0_bytes,
-      'Df_bytes'           : Df_bytes,
+      'Df_bytes'           : kdf.forward_digest,
       'Df_hash'            : Df_hash,
-      'Db_bytes'           : Db_bytes,
+      'Db_bytes'           : kdf.backward_digest,
       'Db_hash'            : Db_hash,
-      'Kf_bytes'           : Kf_bytes,
+      'Kf_bytes'           : kdf.forward_key,
       'Kf_crypt'           : Kf_crypt,
-      'Kb_bytes'           : Kb_bytes,
+      'Kb_bytes'           : kdf.backward_key,
       'Kb_crypt'           : Kb_crypt,
     }
 
