@@ -58,60 +58,12 @@ def hash_extract(hash_context, output_len=None, make_context_reusable=True):
     (output_bytes, _) = split(extract_context.finalize(), output_len)
     return output_bytes
 
-# TODO: hash_finalize? hash_destroy?
-
-def hash_bytes(data_bytes, output_len=None, algorithm=hashes.SHA1()):
-    '''
-    Extract and return output_len bytes from a hash of data_bytes.
-    If output_len is None, return the full hash length.
-    '''
-    hash_context = hash_create(algorithm=algorithm)
-    hash_context = hash_update(hash_context, data_bytes)
-    return hash_extract(hash_context,
-                        output_len=output_len,
-                        make_context_reusable=False)
-
 # Tor-specific hash functions
-
-def kdf_tor(K0_bytes, output_len):
-    '''
-    Return output_len bytes generated from K0_bytes using KDF-TOR (sic).
-    See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n997
-    '''
-    output_bytes = bytearray()
-    i = 0
-    while len(output_bytes) < output_len:
-        assert i < 256
-        counter_byte = Size.CHAR.pack(i)
-        output_bytes += hash_bytes(K0_bytes + counter_byte)
-        i += 1
-    (output_bytes, _) = split(output_bytes, output_len)
-    return output_bytes
-
-# TODO: test the ntor KDF
 
 # See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n895
 PROTOID = 'ntor-curve25519-sha256-1'
 M_EXPAND_NTOR = PROTOID + ':key_expand'
 T_KEY_NTOR = PROTOID + ':key_extract'
-
-def kdf_rfc5869_derive(secret_input_bytes, output_len, m_expand=M_EXPAND_NTOR,
-                       t_key=T_KEY_NTOR):
-    '''
-    Return output_len bytes generated from secret_input_bytes using RFC5869
-    with HKDF-SHA256.
-    There is no equivalent verification function, as only the nonce part of
-    the KDF result is verified directly.
-    See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n1026
-    '''
-    hkdf_sha256 = hkdf.HKDF(algorithm=hashes.SHA256(),
-                            length=output_len,
-                            info=bytes(m_expand),
-                            salt=bytes(t_key),
-                            backend=backends.default_backend())
-    output_bytes = hkdf_sha256.derive(bytes(secret_input_bytes))
-    assert len(output_bytes) == output_len
-    return bytearray(output_bytes)
 
 def crypt_create(key_bytes,
                  is_encrypt_flag=None,

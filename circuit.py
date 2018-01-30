@@ -5,6 +5,7 @@
 
 # Circuit-level functions
 
+import stem.client
 import stem.client.cell
 
 from connect import *
@@ -91,7 +92,6 @@ DF_LEN = HASH_LEN
 DB_LEN = HASH_LEN
 KF_LEN = KEY_LEN
 KB_LEN = KEY_LEN
-KDF_TOR_LEN = KH_LEN + DF_LEN + DB_LEN + KF_LEN + KB_LEN
 
 def circuit_create(link_context):
     '''
@@ -135,14 +135,13 @@ def circuit_create(link_context):
       raise ValueError('We should get a CREATED_FAST response from a CREATE_FAST request')
 
     created_fast_cell = created_fast_cells[0]
-    Y_bytes = created_fast_cell.key_material
 
     # K0=X|Y
     # See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n1007
-    K0_bytes = create_fast_cell.key_material + Y_bytes
+    K0_bytes = create_fast_cell.key_material + created_fast_cell.key_material
 
     # Create the circuit material using a KDF
-    temp_bytes = kdf_tor(K0_bytes, KDF_TOR_LEN)
+    temp_bytes = stem.client.kdf_tor(K0_bytes)
 
     # Extract the circuit material
     (expected_KH_bytes, temp_bytes) = split(temp_bytes, KH_LEN)
