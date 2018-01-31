@@ -130,33 +130,20 @@ def circuit_create(link_context):
       raise ValueError('We should get a CREATED_FAST response from a CREATE_FAST request')
 
     created_fast_cell = created_fast_cells[0]
-
-    # K0=X|Y
-    # See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n1007
-    K0_bytes = create_fast_cell.key_material + created_fast_cell.key_material
-
-    # Create the circuit material using a KDF
-    kdf = stem.client.KDF(K0_bytes)
+    kdf = stem.client.KDF.from_value(create_fast_cell.key_material + created_fast_cell.key_material)
 
     if created_fast_cell.derivative_key != kdf.key_hash:
       raise ValueError('Remote failed to prove that it knows our shared key')
 
-    # Seed the hash digests
-    Df_hash = hash_create()
-    Df_hash = hash_update(Df_hash, kdf.forward_digest)
-    Db_hash = hash_create()
-    Db_hash = hash_update(Db_hash, kdf.backward_digest)
-    # Create the crypto contexts
-    Kf_crypt = crypt_create(kdf.forward_key, is_encrypt_flag=True)
-    Kb_crypt = crypt_create(kdf.backward_key, is_encrypt_flag=False)
+    circ = stem.client.Circuit.from_kdf(circ_id, kdf)
 
     circuit_context = {
       'circ_id'            : circ_id,
       'link'               : link_context,
-      'Df_hash'            : Df_hash,
-      'Db_hash'            : Db_hash,
-      'Kf_crypt'           : Kf_crypt,
-      'Kb_crypt'           : Kb_crypt,
+      'Df_hash'            : circ.forward_digest,
+      'Db_hash'            : circ.backward_digest,
+      'Kf_crypt'           : circ.forward_key,
+      'Kb_crypt'           : circ.backward_key,
     }
 
     link_context.setdefault('circuits', {})

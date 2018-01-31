@@ -744,8 +744,8 @@ def pack_relay_payload(relay_command_string,
                                force_recognized_bytes=force_recognized_bytes,
                                force_relay_payload_len=force_relay_payload_len)
 
-    hop_hash_context = hash_update(hop_hash_context, payload_zero_digest_bytes)
-    digest_bytes = hash_extract(hop_hash_context, output_len=RELAY_DIGEST_LEN)
+    hop_hash_context.update(payload_zero_digest_bytes)
+    digest_bytes = hop_hash_context.digest()[:RELAY_DIGEST_LEN]
 
     plain_payload_bytes = pack_relay_payload_impl(
                                relay_command_string,
@@ -755,9 +755,7 @@ def pack_relay_payload(relay_command_string,
                                force_recognized_bytes=force_recognized_bytes,
                                force_relay_payload_len=force_relay_payload_len)
 
-    (hop_crypt_context, crypt_payload_bytes) = crypt_bytes_context(
-                                                         hop_crypt_context,
-                                                         plain_payload_bytes)
+    crypt_payload_bytes = hop_crypt_context.update(plain_payload_bytes)
 
     return (crypt_payload_bytes, plain_payload_bytes,
             hop_hash_context, hop_crypt_context)
@@ -969,9 +967,7 @@ def unpack_relay_payload(crypt_len,
     #print validate, hop_crypt_context, crypt_len
     #print binascii.hexlify(crypt_bytes)
     if hop_crypt_context is not None:
-        (hop_crypt_context, data_bytes) = crypt_bytes_context(
-                                                          hop_crypt_context,
-                                                          crypt_bytes)
+        data_bytes = hop_crypt_context.update(bytes(crypt_bytes))
     else:
         # if it's already decrypted, we will unpack the full content
         # otherwise, we will unpack the cell header
@@ -1001,12 +997,8 @@ def unpack_relay_payload(crypt_len,
                                  digest_bytes=None,
                                  relay_payload_bytes=relay_payload_bytes,
                                  force_recognized_bytes=recognized_bytes)
-    hop_hash_context = hash_update(hop_hash_context,
-                                   payload_zero_digest_bytes,
-                                   make_context_reusable=True)
-    expected_relay_digest_bytes = hash_extract(hop_hash_context,
-                                               RELAY_DIGEST_LEN,
-                                               make_context_reusable=True)
+    hop_hash_context.update(payload_zero_digest_bytes)
+    expected_relay_digest_bytes = hop_hash_context.digest()[:RELAY_DIGEST_LEN]
     if validate:
         # check the cell was decoded correctly
         assert (expected_relay_digest_bytes ==
