@@ -101,14 +101,9 @@ def circuit_create(link_context):
         'circ_id'            : the circuit id for this circuit
         'link'               : the link context for this circuit
     And response: (missing if there is no response)
-        'K0_bytes'           : the shared key for the circuit
-        'Df_bytes'           : the forward digest seed, derived from K0
         'Df_hash'            : the forward digest hash, seeded with Df_bytes
-        'Db_bytes'           : the backward digest seed, derived from K0
         'Db_hash'            : the backward digest hash, seeded with Db_bytes
-        'Kf_bytes'           : the forward encryption key, derived from K0
         'Kf_crypt'           : the forward encryption context, key Kf_bytes
-        'Kb_bytes'           : the backward encryption key, derived from K0
         'Kb_crypt'           : the backward decryption context, key Kb_bytes
     Also adds the following entries to the link context:
        'circuits'            : a dictionary containing the circuits on this
@@ -158,14 +153,9 @@ def circuit_create(link_context):
     circuit_context = {
       'circ_id'            : circ_id,
       'link'               : link_context,
-      'K0_bytes'           : K0_bytes,
-      'Df_bytes'           : kdf.forward_digest,
       'Df_hash'            : Df_hash,
-      'Db_bytes'           : kdf.backward_digest,
       'Db_hash'            : Db_hash,
-      'Kf_bytes'           : kdf.forward_key,
       'Kf_crypt'           : Kf_crypt,
-      'Kb_bytes'           : kdf.backward_key,
       'Kb_crypt'           : Kb_crypt,
     }
 
