@@ -125,16 +125,18 @@ def circuit_crypt_cell_payload(context,
     force_recognized_bytes = cell.get('force_recognized_bytes')
     force_digest_bytes = cell.get('force_digest_bytes')
     force_relay_payload_len = cell.get('force_relay_payload_len')
-    (crypt_payload_bytes, plain_payload_bytes) = \
-            pack_relay_payload(relay_command_string,
+    plain_payload_bytes = pack_relay_payload(relay_command_string,
                                hop_hash_context,
-                               hop_crypt_context,
                                stream_id=stream_id,
                                relay_payload_bytes=relay_payload_bytes,
                                force_recognized_bytes=force_recognized_bytes,
                                force_digest_bytes=force_digest_bytes,
                                force_relay_payload_len=force_relay_payload_len)
+
+    crypt_payload_bytes = hop_crypt_context.update(plain_payload_bytes)
+
     # Pack the un-crypted payload for display purposes
+
     cell['payload_bytes'] = plain_payload_bytes
     plain_cell_bytes = link_pack_cell(context['link'],
                                       cell,

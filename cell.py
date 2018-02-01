@@ -709,7 +709,6 @@ def pack_relay_payload_impl(relay_command_string,
 
 def pack_relay_payload(relay_command_string,
                        hop_hash_context,
-                       hop_crypt_context,
                        stream_id=None,
                        relay_payload_bytes=None,
                        force_recognized_bytes=None,
@@ -720,7 +719,6 @@ def pack_relay_payload(relay_command_string,
     calculating the digest based on the running digest of all relay cell
     payloads on this circuit hop (hop_hash_context), after updating it with
     this relay cell's payload (with all zero digest bytes).
-    Then encrypt the payload with hop_crypt_context.
     If force_recognized_bytes, force_digest_bytes, or force_relay_payload_len
     are not None, their values are used instead of the default or calculated
     values.
@@ -755,9 +753,7 @@ def pack_relay_payload(relay_command_string,
                                force_recognized_bytes=force_recognized_bytes,
                                force_relay_payload_len=force_relay_payload_len)
 
-    crypt_payload_bytes = hop_crypt_context.update(plain_payload_bytes)
-
-    return (crypt_payload_bytes, plain_payload_bytes)
+    return plain_payload_bytes
 
 CONNECTED_ADDRESS_TYPE_LEN = 1
 CONNECTED_TTL_LEN = 4
