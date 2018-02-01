@@ -14,14 +14,6 @@ from link import *
 
 from stem.client import split
 
-def get_circuit_or_link_context(context):
-    '''
-    Return a circuit or link context from context, preferring a circuit
-    context if possible.
-    '''
-    # TODO: extract circuit contexts from stream contexts
-    return context
-
 def circuit_get_crypt_context(context,
                               is_cell_outbound_flag=None):
     '''

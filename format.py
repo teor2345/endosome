@@ -73,7 +73,6 @@ def format_cell_bytes(context, cell_bytes,
     And if validate is True, relay digests are validated.
     Returns a string formatted according to the arguments.
     '''
-    context = get_circuit_or_link_context(context)
     link_version = None
     if not initial_cells:
         link_version = get_link_version(context, force_link_version)
