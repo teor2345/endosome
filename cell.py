@@ -757,8 +757,7 @@ def pack_relay_payload(relay_command_string,
 
     crypt_payload_bytes = hop_crypt_context.update(plain_payload_bytes)
 
-    return (crypt_payload_bytes, plain_payload_bytes,
-            hop_hash_context, hop_crypt_context)
+    return (crypt_payload_bytes, plain_payload_bytes)
 
 def pack_relay_drop_data():
     '''

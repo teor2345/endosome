@@ -34,25 +34,6 @@ def circuit_get_crypt_context(context,
     else:
         return (context['Db_hash'], context['Kb_crypt'])
 
-def circuit_set_crypt_context(context,
-                              hop_hash_context,
-                              hop_crypt_context,
-                              is_cell_outbound_flag=None):
-    '''
-    Sets the hash and crypt contexts in context, based on
-    is_cell_outbound_flag.
-    '''
-    assert is_cell_outbound_flag is not None
-    if is_cell_outbound_flag:
-        context['Df_hash'] = hop_hash_context
-        # Setting the crypt context is redundant, since the crypt context is
-        # always modified in-place (it can't be copied).
-        # But it's nice to show that we're modifying it along with the digest.
-        context['Kf_crypt'] = hop_crypt_context
-    else:
-        context['Db_hash'] = hop_hash_context
-        context['Kb_crypt'] = hop_crypt_context
-
 def get_circuits(context):
     '''
     Return the circuits from context, which can be any kind of context.
@@ -170,8 +151,7 @@ def circuit_crypt_cell_payload(context,
     force_recognized_bytes = cell.get('force_recognized_bytes')
     force_digest_bytes = cell.get('force_digest_bytes')
     force_relay_payload_len = cell.get('force_relay_payload_len')
-    (crypt_payload_bytes, plain_payload_bytes,
-     hop_hash_context, hop_crypt_context) = \
+    (crypt_payload_bytes, plain_payload_bytes) = \
             pack_relay_payload(relay_command_string,
                                hop_hash_context,
                                hop_crypt_context,
@@ -187,10 +167,7 @@ def circuit_crypt_cell_payload(context,
                                       force_link_version=force_link_version)
     # Return the crypted payload
     cell['payload_bytes'] = crypt_payload_bytes
-    return (cell,
-            hop_hash_context,
-            hop_crypt_context,
-            plain_cell_bytes)
+    return (cell, plain_cell_bytes)
 
 def circuit_write_cell_list(context, cell_list):
     '''
@@ -226,20 +203,9 @@ def circuit_write_cell_list(context, cell_list):
         sent_cell = cell.copy()
         # If the cell doesn't have a circuit_id, use the one from the context
         sent_cell.setdefault('circ_id', context['circ_id'])
-        (sent_cell,
-         hop_hash_context,
-         hop_crypt_context,
-         plain_cell_bytes) = circuit_crypt_cell_payload(context,
-                                        sent_cell,
-                                        hop_hash_context,
-                                        hop_crypt_context)
+        (sent_cell, plain_cell_bytes) = circuit_crypt_cell_payload(context, sent_cell, hop_hash_context, hop_crypt_context)
         sent_cell_list.append(sent_cell)
         plain_cells_bytes += plain_cell_bytes
-    # We already assumed we're the client
-    circuit_set_crypt_context(context,
-                              hop_hash_context,
-                              hop_crypt_context,
-                              is_cell_outbound_flag=True)
     crypt_cells_bytes = link_write_cell_list(context['link'], sent_cell_list)
     return (sent_cell_list, crypt_cells_bytes, plain_cells_bytes)
 
