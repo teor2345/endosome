@@ -133,17 +133,27 @@ def circuit_crypt_cell_payload(context,
                                force_digest_bytes=force_digest_bytes,
                                force_relay_payload_len=force_relay_payload_len)
 
-    crypt_payload_bytes = hop_crypt_context.update(plain_payload_bytes)
+    # It works! Ish. Has a couple rough edges...
+    #
+    #   1. This only works because pack_relay_payload() above is updating our
+    #      digest. Stem needs to do this.
+    #
+    #   2. This is cropping off the top three bytes because we're supposed
+    #      to encrypt everything except those headers. We need to expand
+    #      stem's pack() function to accept an encryption key.
 
-    # Pack the un-crypted payload for display purposes
+    plain_payload_bytes = stem.client.cell.RelayCell(
+      context['circ'].id,
+      cell['relay_command_string'],
+      cell.get('relay_payload_bytes', ''),
+      Size.LONG.unpack(hop_hash_context.digest()[:RELAY_DIGEST_LEN]),
+      cell.get('stream_id'),
+    ).pack(context['link']['link_version'])
 
-    cell['payload_bytes'] = plain_payload_bytes
-    plain_cell_bytes = link_pack_cell(context['link'],
-                                      cell,
-                                      force_link_version=force_link_version)
-    # Return the crypted payload
-    cell['payload_bytes'] = crypt_payload_bytes
-    return (cell, plain_cell_bytes)
+    plain_payload_bytes = plain_payload_bytes[3:]
+
+    cell['payload_bytes'] = hop_crypt_context.update(plain_payload_bytes)
+    return (cell, plain_payload_bytes)
 
 def circuit_write_cell_list(context, cell_list):
     '''
