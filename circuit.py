@@ -14,18 +14,6 @@ from link import *
 
 from stem.client import split
 
-def circuit_get_crypt_context(context,
-                              is_cell_outbound_flag=None):
-    '''
-    Returns a tuple containing the hash and crypt contexts from context,
-    based on is_cell_outbound_flag.
-    '''
-    assert is_cell_outbound_flag is not None
-    if is_cell_outbound_flag:
-        return (context['Df_hash'], context['Kf_crypt'])
-    else:
-        return (context['Db_hash'], context['Kb_crypt'])
-
 def get_circuits(context):
     '''
     Return the circuits from context, which can be any kind of context.
@@ -58,13 +46,6 @@ def get_unused_circ_id(context, is_initiator_flag=True,
         circ_id += 1
         assert circ_id < get_max_valid_circ_id(link_version)
     return circ_id
-
-# See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n997
-KH_LEN = HASH_LEN
-DF_LEN = HASH_LEN
-DB_LEN = HASH_LEN
-KF_LEN = KEY_LEN
-KB_LEN = KEY_LEN
 
 def circuit_create(link_context):
     '''
@@ -117,6 +98,7 @@ def circuit_create(link_context):
       'Db_hash'            : circ.backward_digest,
       'Kf_crypt'           : circ.forward_key,
       'Kb_crypt'           : circ.backward_key,
+      'circ'               : circ,
     }
 
     link_context.setdefault('circuits', {})
@@ -187,14 +169,12 @@ def circuit_write_cell_list(context, cell_list):
     '''
     sent_cell_list = []
     plain_cells_bytes = bytearray()
-    # Assume we're a client
-    (hop_hash_context,
-     hop_crypt_context) = circuit_get_crypt_context(context,
-                                                    is_cell_outbound_flag=True)
+    hop_hash_context, hop_crypt_context = context['circ'].forward_digest, context['circ'].forward_key
+
     for cell in cell_list:
         sent_cell = cell.copy()
         # If the cell doesn't have a circuit_id, use the one from the context
-        sent_cell.setdefault('circ_id', context['circ_id'])
+        sent_cell.setdefault('circ_id', context['circ'].id)
         (sent_cell, plain_cell_bytes) = circuit_crypt_cell_payload(context, sent_cell, hop_hash_context, hop_crypt_context)
         sent_cell_list.append(sent_cell)
         plain_cells_bytes += plain_cell_bytes

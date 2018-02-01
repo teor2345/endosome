@@ -79,9 +79,10 @@ def format_cell_bytes(context, cell_bytes,
     link_version_list = get_link_version_list(context,
                                         force_link_version=force_link_version)
     if is_cell_outbound_flag is not None:
-        (hop_hash_context,
-         hop_crypt_context) = circuit_get_crypt_context(context,
-                                  is_cell_outbound_flag=is_cell_outbound_flag)
+        if is_cell_outbound_flag:
+            hop_hash_context, hop_crypt_context = context['circ'].forward_digest, context['circ'].forward_key
+        else:
+            hop_hash_context, hop_crypt_context = context['circ'].backward_digest, context['circ'].backward_key
     else:
         hop_hash_context = None
         hop_crypt_context = None
