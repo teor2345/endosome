@@ -125,22 +125,21 @@ def circuit_crypt_cell_payload(context,
     force_recognized_bytes = cell.get('force_recognized_bytes')
     force_digest_bytes = cell.get('force_digest_bytes')
     force_relay_payload_len = cell.get('force_relay_payload_len')
-    plain_payload_bytes = pack_relay_payload(relay_command_string,
-                               hop_hash_context,
-                               stream_id=stream_id,
-                               relay_payload_bytes=relay_payload_bytes,
-                               force_recognized_bytes=force_recognized_bytes,
-                               force_digest_bytes=force_digest_bytes,
-                               force_relay_payload_len=force_relay_payload_len)
 
-    # It works! Ish. Has a couple rough edges...
-    #
-    #   1. This only works because pack_relay_payload() above is updating our
-    #      digest. Stem needs to do this.
-    #
-    #   2. This is cropping off the top three bytes because we're supposed
-    #      to encrypt everything except those headers. We need to expand
-    #      stem's pack() function to accept an encryption key.
+    # TODO: It works! Ish. Clearly has rough edges. This is cropping off the
+    # top three bytes because we're supposed to encrypt everything except those
+    # headers. We need to expand stem's pack() function to accept an encryption
+    # key.
+
+    payload_without_digest = stem.client.cell.RelayCell(
+      context['circ'].id,
+      cell['relay_command_string'],
+      cell.get('relay_payload_bytes', ''),
+      0,
+      cell.get('stream_id'),
+    ).pack(context['link']['link_version'])[3:]
+
+    hop_hash_context.update(payload_without_digest)
 
     plain_payload_bytes = stem.client.cell.RelayCell(
       context['circ'].id,

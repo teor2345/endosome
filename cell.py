@@ -707,54 +707,6 @@ def pack_relay_payload_impl(relay_command_string,
     assert len(payload_bytes) == MAX_FIXED_PAYLOAD_LEN
     return payload_bytes
 
-def pack_relay_payload(relay_command_string,
-                       hop_hash_context,
-                       stream_id=None,
-                       relay_payload_bytes=None,
-                       force_recognized_bytes=None,
-                       force_digest_bytes=None,
-                       force_relay_payload_len=None):
-    '''
-    Pack relay_payload_bytes into a RELAY or RELAY_EARLY cell payload,
-    calculating the digest based on the running digest of all relay cell
-    payloads on this circuit hop (hop_hash_context), after updating it with
-    this relay cell's payload (with all zero digest bytes).
-    If force_recognized_bytes, force_digest_bytes, or force_relay_payload_len
-    are not None, their values are used instead of the default or calculated
-    values.
-    See pack_relay_payload_impl() for other argument details.
-    See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n1240
-    Returns a tuple with the encrypted payload bytes, plaintext payload bytes,
-    and the new circuit hop hash and crypt states.
-    '''
-    if force_digest_bytes:
-        return pack_relay_payload_impl(relay_command_string,
-                               stream_id=stream_id,
-                               digest_bytes=force_digest_bytes,
-                               relay_payload_bytes=relay_payload_bytes,
-                               force_recognized_bytes=force_recognized_bytes,
-                               force_relay_payload_len=force_relay_payload_len)
-
-    payload_zero_digest_bytes = pack_relay_payload_impl(relay_command_string,
-                               stream_id=stream_id,
-                               digest_bytes=None,
-                               relay_payload_bytes=relay_payload_bytes,
-                               force_recognized_bytes=force_recognized_bytes,
-                               force_relay_payload_len=force_relay_payload_len)
-
-    hop_hash_context.update(payload_zero_digest_bytes)
-    digest_bytes = hop_hash_context.digest()[:RELAY_DIGEST_LEN]
-
-    plain_payload_bytes = pack_relay_payload_impl(
-                               relay_command_string,
-                               stream_id=stream_id,
-                               digest_bytes=digest_bytes,
-                               relay_payload_bytes=relay_payload_bytes,
-                               force_recognized_bytes=force_recognized_bytes,
-                               force_relay_payload_len=force_relay_payload_len)
-
-    return plain_payload_bytes
-
 CONNECTED_ADDRESS_TYPE_LEN = 1
 CONNECTED_TTL_LEN = 4
 MIN_RELAY_CONNECTED_LEN = IPV4_ADDRESS_LEN + CONNECTED_TTL_LEN
