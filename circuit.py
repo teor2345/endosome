@@ -74,22 +74,7 @@ def circuit_create(link_context):
     # If we don't do this check, we will hang when reading
     assert not is_circ_id_used(link_context, circ_id)
 
-    create_fast_cell = stem.client.cell.CreateFastCell(circ_id)
-    ssl_write(link_context, create_fast_cell.pack(link_version))
-
-    response = stem.client.cell.Cell.unpack(link_context['ssl_socket'].recv(), link_version)
-    created_fast_cells = filter(lambda cell: isinstance(cell, stem.client.cell.CreatedFastCell), response)
-
-    if not created_fast_cells:
-      raise ValueError('We should get a CREATED_FAST response from a CREATE_FAST request')
-
-    created_fast_cell = created_fast_cells[0]
-    kdf = stem.client.KDF.from_value(create_fast_cell.key_material + created_fast_cell.key_material)
-
-    if created_fast_cell.derivative_key != kdf.key_hash:
-      raise ValueError('Remote failed to prove that it knows our shared key')
-
-    circ = stem.client.Circuit.from_kdf(circ_id, kdf)
+    circ = stem.client.Circuit.create(link_context['ssl_socket'], circ_id, link_version)
 
     circuit_context = {
       'circ_id'            : circ_id,
