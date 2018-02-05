@@ -12,10 +12,9 @@ import os
 import time
 
 from connect import *
-from crypto import *
 
-from stem.client import ZERO, split
 from stem.client.cell import Cell, CircuitCell
+from stem.client.datatype import ZERO, Size, split
 
 # Link version constants
 # https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n538

@@ -5,14 +5,13 @@
 
 # Circuit-level functions
 
-import stem.client
 import stem.client.cell
 
 from connect import *
 from cell import *
 from link import *
 
-from stem.client import split
+from stem.client.datatype import Size, split
 
 def get_circuits(context):
     '''
@@ -21,31 +20,6 @@ def get_circuits(context):
     '''
     link_context = get_connect_context(context)
     return link_context.get('circuits', {})
-
-def is_circ_id_used(context, circ_id):
-    '''
-    Returns True if circ_id is used in context, and False if it is not.
-    '''
-    link_context = get_connect_context(context)
-    is_used = circ_id in get_circuits(link_context)
-    if is_used:
-        assert get_circuits(link_context)[circ_id]['link'] == link_context
-    return is_used
-
-def get_unused_circ_id(context, is_initiator_flag=True,
-                       force_link_version=None):
-    '''
-    Returns the first valid, unused circ_id in context.
-    '''
-    link_context = get_connect_context(context)
-    link_version = get_link_version(link_context, force_link_version)
-    circ_id = get_min_valid_circ_id(link_version,
-                                    is_initiator_flag=is_initiator_flag)
-    # a randomised selection algorithm would be faster but more complex
-    while is_circ_id_used(link_context, circ_id):
-        circ_id += 1
-        assert circ_id < get_max_valid_circ_id(link_version)
-    return circ_id
 
 def circuit_create(link_context):
     '''
@@ -66,18 +40,10 @@ def circuit_create(link_context):
     '''
 
     link_context = get_connect_context(link_context)
-    # choose an unused circuit id, not just the lowest one
-    circ_id = get_unused_circ_id(link_context, is_initiator_flag=True)
-    link_version = get_link_version(link_context)
-
-    # Relays drop create cells for circuit ids that are in use
-    # If we don't do this check, we will hang when reading
-    assert not is_circ_id_used(link_context, circ_id)
-
-    circ = stem.client.Circuit.create(link_context['ssl_socket'], circ_id, link_version)
+    circ = link_context['stem_relay'].create_circuit()
 
     circuit_context = {
-      'circ_id'            : circ_id,
+      'circ_id'            : circ.id,
       'link'               : link_context,
       'Df_hash'            : circ.forward_digest,
       'Db_hash'            : circ.backward_digest,
@@ -87,8 +53,7 @@ def circuit_create(link_context):
     }
 
     link_context.setdefault('circuits', {})
-    link_context['circuits'][circ_id] = circuit_context
-    assert is_circ_id_used(link_context, circ_id)
+    link_context['circuits'][circ.id] = circuit_context
 
     return circuit_context
 

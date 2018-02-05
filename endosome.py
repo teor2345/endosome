@@ -6,7 +6,6 @@
 # Top-level module file
 
 from connect import *
-from crypto import *
 from cell import *
 from link import *
 from circuit import *

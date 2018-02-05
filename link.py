@@ -12,7 +12,7 @@ import stem.socket
 
 from connect import *
 from cell import *
-from stem.client import AddrType, Address
+from stem.client.datatype import AddrType, Address
 
 def get_link_version(context, force_link_version=None):
     '''
@@ -73,23 +73,12 @@ def link_open(ip, port, link_version_list=[3,4,5], send_netinfo=True):
     See https://gitweb.torproject.org/torspec.git/tree/tor-spec.txt#n226
     '''
 
-    conn = stem.socket.RelaySocket(ip, port)
-    conn.send(stem.client.cell.VersionsCell(link_version_list).pack())
-
-    # From the VERSIONS reply determine the highest protocol version we both
-    # support. Following cells are ignored since we don't use them.
-
-    versions_reply = stem.client.cell.Cell.pop(conn.recv(), 2)[0]
-    link_version = get_highest_common_version(versions_reply.versions, link_version_list)
-
-    # Now we know the link version, send a netinfo cell
-
-    if send_netinfo:
-        conn.send(stem.client.cell.NetinfoCell(Address(ip, AddrType.IPv4), []).pack(link_version))
+    conn = stem.client.Relay.connect(ip, port, link_version_list)
 
     return {
-      'ssl_socket': conn,
-      'link_version': link_version,
+      'stem_relay': conn,
+      'ssl_socket': conn._orport,
+      'link_version': conn.link_protocol,
       'link_version_list': link_version_list,
     }
 
