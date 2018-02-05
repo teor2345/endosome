@@ -3,6 +3,10 @@
 # Tested: Python 2.7.13 on macOS 10.12.5 with OpenSSL 1.0.2l and tor 0.3.0.9.
 # (The default OpenSSL on macOS is *very* old.)
 
+import sys
+import stem.client
+import stem.client.cell
+
 from endosome import *
 
 # The default IP and Port
@@ -18,6 +22,25 @@ MAX_RESPONSE_LEN = 10*1024*1024
 # VERSIONS, CERTS, AUTH_CHALLENGE, NETINFO, CREATED_FAST, CONNECTED, RELAY_DATA
 
 # Create the BEGINDIR cell
+
+relay = stem.client.Relay.connect(RELAYIP, ORPORT, [3])
+
+circ = relay.create_circuit()
+
+circ.send('RELAY_BEGIN_DIR', '', stream_id = 1)
+
+reply = next(stem.client.cell.Cell.unpack(relay._orport.recv(), relay.link_protocol))
+
+reply.decrypt(circ)
+circ.send('RELAY_DATA', REQUEST, stream_id = 1)
+reply = next(stem.client.cell.Cell.unpack(relay._orport.recv(), relay.link_protocol))
+print reply.decrypt(circ).data
+
+sys.exit(0)
+
+
+
+
 
 begindir_cell = {
   'cell_command_string': 'RELAY',
