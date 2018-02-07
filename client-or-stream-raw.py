@@ -23,18 +23,13 @@ MAX_RESPONSE_LEN = 10*1024*1024
 
 # Create the BEGINDIR cell
 
-relay = stem.client.Relay.connect(RELAYIP, ORPORT, [3])
+with stem.client.Relay.connect('127.0.0.1', 12345, [3]) as relay:
+  circ = relay.create_circuit()
+  circ.send('RELAY_BEGIN_DIR', stream_id = 1)
+  desc = circ.send('RELAY_DATA', 'GET /tor/server/authority HTTP/1.0\r\n\r\n', stream_id = 1).data
+  circ.close()
 
-circ = relay.create_circuit()
-
-circ.send('RELAY_BEGIN_DIR', '', stream_id = 1)
-
-reply = next(stem.client.cell.Cell.unpack(relay._orport.recv(), relay.link_protocol))
-
-reply.decrypt(circ)
-circ.send('RELAY_DATA', REQUEST, stream_id = 1)
-reply = next(stem.client.cell.Cell.unpack(relay._orport.recv(), relay.link_protocol))
-print reply.decrypt(circ).data
+  print(desc)
 
 sys.exit(0)
 
