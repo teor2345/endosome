@@ -7,13 +7,13 @@
 
 import binascii
 
+import stem.client.cell
+
 from endosome import *
 
 # The default IP and Port
 RELAYIP = '127.0.0.1'
 ORPORT = 12345
-
-MAX_RESPONSE_LEN = 10*1024*1024
 
 # Request:
 # PADDING, VERSIONS
@@ -21,12 +21,12 @@ MAX_RESPONSE_LEN = 10*1024*1024
 # VERSIONS, CERTS, AUTH_CHALLENGE
 
 version_list = [3]
-REQUEST  = pack_padding_cell()
-REQUEST += pack_versions_cell(version_list)
+REQUEST = stem.client.cell.PaddingCell().pack(version_list[0])
+REQUEST += stem.client.cell.VersionsCell(version_list).pack()
 
 print 'SSL Server: {}:{}'.format(RELAYIP, ORPORT)
 print '\nRequest Cells:\n{}'.format(format_cells(REQUEST, version_list))
-response = ssl_request(RELAYIP, ORPORT, REQUEST, MAX_RESPONSE_LEN)
+response = ssl_request(RELAYIP, ORPORT, REQUEST)
 print 'Response Cells:\n{}'.format(format_cells(response, version_list))
 
 # The relay fails to respond, and logs:
@@ -42,12 +42,12 @@ print 'Response Cells:\n{}'.format(format_cells(response, version_list))
 version_list = [4]
 # You can send as many of these as you like. No, really, as many as you like.
 #
-REQUEST  = pack_vpadding_cell(0) * 5000
-REQUEST += pack_versions_cell(version_list)
+REQUEST = stem.client.cell.VPaddingCell().pack(version_list[0], 0) * 5000
+REQUEST += stem.client.cell.VersionsCell(version_list).pack()
 
 print 'SSL Server: {}:{}'.format(RELAYIP, ORPORT)
 print '\nRequest Cells:\n{}'.format(format_cells(REQUEST, version_list))
-response = ssl_request(RELAYIP, ORPORT, REQUEST, MAX_RESPONSE_LEN)
+response = ssl_request(RELAYIP, ORPORT, REQUEST)
 print 'Response Cells:\n{}'.format(format_cells(response, version_list))
 
 # Standard response
@@ -58,13 +58,13 @@ print 'Response Cells:\n{}'.format(format_cells(response, version_list))
 # VERSIONS, CERTS, AUTH_CHALLENGE
 
 version_list = [4]
-REQUEST  = pack_vpadding_cell(0)
-REQUEST += pack_padding_cell()
-REQUEST += pack_versions_cell(version_list)
+REQUEST = stem.client.cell.VPaddingCell().pack(version_list[0], 0)
+REQUEST += stem.client.cell.PaddingCell().pack(version_list[0])
+REQUEST += stem.client.cell.VersionsCell(version_list).pack()
 
 print 'SSL Server: {}:{}'.format(RELAYIP, ORPORT)
 print '\nRequest Cells:\n{}'.format(format_cells(REQUEST, version_list))
-response = ssl_request(RELAYIP, ORPORT, REQUEST, MAX_RESPONSE_LEN)
+response = ssl_request(RELAYIP, ORPORT, REQUEST)
 print 'Response Cells:\n{}'.format(format_cells(response, version_list))
 
 # The relay fails to respond, and logs:

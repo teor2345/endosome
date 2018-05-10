@@ -2,7 +2,7 @@
 # Get a Tor Directory document from a local Tor relay's DirPort
 # Tested: Python 2.7.13 on macOS 10.12.5 with tor 0.3.0.9.
 
-from endosome import *
+import socket
 
 # The default IP and Port
 RELAYIP = '127.0.0.1'
@@ -23,5 +23,8 @@ MAX_RESPONSE_LEN = 10*1024*1024
 
 print 'HTTP Server: {}:{}'.format(RELAYIP, DIRPORT)
 print REQUEST
-desc = tcp_request(RELAYIP, DIRPORT, REQUEST, MAX_RESPONSE_LEN)
-print desc
+
+conn = socket.create_connection((RELAYIP, DIRPORT))
+conn.sendall(REQUEST)
+print conn.recv(MAX_RESPONSE_LEN)
+conn.close()

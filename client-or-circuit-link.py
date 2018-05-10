@@ -3,6 +3,9 @@
 # Tested: Python 2.7.13 on macOS 10.12.5 with OpenSSL 1.0.2l and tor 0.3.0.9.
 # (The default OpenSSL on macOS is *very* old.)
 
+import stem.client
+import stem.client.cell
+
 from endosome import *
 
 # The default IP and Port
@@ -14,34 +17,27 @@ ORPORT = 12345
 # Expected Response:
 # VERSIONS, CERTS, AUTH_CHALLENGE, NETINFO, CREATED_FAST
 
-cell_list = []
-netinfo_payload = pack_netinfo_payload('127.0.0.1')
-netinfo_cell = link_make_cell('NETINFO', payload_bytes=netinfo_payload)
-cell_list.append(netinfo_cell)
-create_fast_payload=pack_create_fast_payload()
-create_fast_cell = link_make_cell('CREATE_FAST',
-                             # Automatically choose a valid circuit ID for the
-                             # link version
-                             circ_id=None,
-                             payload_bytes=create_fast_payload)
-cell_list.append(create_fast_cell)
+# TODO: Tor has some complications about the circuit id we should create. In
+# link protocols 1-3 the most significant bit should be set if our public key
+# is larger than theirs (ie, this should be 0x80000000). In link protocol 4
+# and higher the MSB is set if we're the initiator of the connection.
+
+cell_list = [
+  stem.client.cell.NetinfoCell(stem.client.Address('127.0.0.1'), []),
+  stem.client.cell.CreateFastCell(1),
+]
 
 # Try the default set of link versions: we will get 4 or 5, depending on
 # the Tor version
 print 'SSL Server: {}:{}'.format(RELAYIP, ORPORT)
 print 'Opening Tor connection, sending link version and netinfo cells'
-(context, response_bytes) = link_request_cell_list(RELAYIP, ORPORT,
-                                                   cell_list)
+(context, response_bytes) = link_request_cell_list(RELAYIP, ORPORT, cell_list)
 print 'Connection context:\n{}'.format(link_format_context(context))
-print 'Connection cells:\n{}'.format(link_format_cell_bytes(context,
-                                                            response_bytes))
+print 'Connection cells:\n{}'.format(format_cell_bytes(context, response_bytes))
 
 # Try link version 3
 print 'SSL Server: {}:{}'.format(RELAYIP, ORPORT)
 print 'Opening Tor connection, sending link versions cell only'
-(context, response_bytes) = link_request_cell_list(RELAYIP, ORPORT,
-                                                   cell_list,
-                                                   link_version_list=[3])
+(context, response_bytes) = link_request_cell_list(RELAYIP, ORPORT, cell_list, link_version_list=[3])
 print 'Connection context:\n{}'.format(link_format_context(context))
-print 'Connection cells:\n{}'.format(link_format_cell_bytes(context,
-                                                            response_bytes))
+print 'Connection cells:\n{}'.format(format_cell_bytes(context, response_bytes))

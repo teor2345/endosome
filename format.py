@@ -5,7 +5,6 @@
 
 # Formatting functions
 
-from pack import *
 from connect import *
 from cell import *
 from link import *
@@ -74,16 +73,16 @@ def format_cell_bytes(context, cell_bytes,
     And if validate is True, relay digests are validated.
     Returns a string formatted according to the arguments.
     '''
-    context = get_circuit_or_link_context(context)
     link_version = None
     if not initial_cells:
         link_version = get_link_version(context, force_link_version)
     link_version_list = get_link_version_list(context,
                                         force_link_version=force_link_version)
     if is_cell_outbound_flag is not None:
-        (hop_hash_context,
-         hop_crypt_context) = circuit_get_crypt_context(context,
-                                  is_cell_outbound_flag=is_cell_outbound_flag)
+        if is_cell_outbound_flag:
+            hop_hash_context, hop_crypt_context = context['circ'].forward_digest, context['circ'].forward_key
+        else:
+            hop_hash_context, hop_crypt_context = context['circ'].backward_digest, context['circ'].backward_key
     else:
         hop_hash_context = None
         hop_crypt_context = None
@@ -97,11 +96,6 @@ def format_cell_bytes(context, cell_bytes,
                         validate=validate,
                         skip_cell_bytes=skip_cell_bytes,
                         skip_zero_padding=skip_zero_padding)
-
-# compatibility with older scripts
-link_format_cell_bytes = format_cell_bytes
-# and for consistency
-circuit_format_cell_bytes = format_cell_bytes
 
 # This function is located in circuit.py to resolve a circular dependency
 def format_context(context,
@@ -169,7 +163,7 @@ def link_format_context(context,
     Formats a link context using format_context().
     Returns a string formatted according to the arguments.
     '''
-    context = get_link_context(context)
+    context = get_connect_context(context)
     link_version = get_link_version(context, force_link_version)
     return format_context(context,
                           link_version=link_version,
@@ -189,7 +183,6 @@ def circuit_format_context(context,
     Formats a circuit context using format_context().
     Returns a string formatted according to the arguments.
     '''
-    context = get_circuit_context(context)
     link_version = get_link_version(context, force_link_version)
     return format_context(context,
                           link_version=link_version,

@@ -14,11 +14,11 @@ ORPORT = 12345
 # Expected Response:
 # VERSIONS, CERTS, AUTH_CHALLENGE, NETINFO, CREATED_FAST, CONNECTED
 
-# Create the cell
-begindir_cell = circuit_make_relay_cell('RELAY',
-                                        'RELAY_BEGIN_DIR',
-                                        stream_id=1,
-                                        relay_payload_bytes=None)
+begindir_cell = {
+  'cell_command_string': 'RELAY',
+  'relay_command_string': 'RELAY_BEGIN_DIR',
+  'stream_id': 1,
+)
 
 # Try the default set of link versions: we will get 4 or 5, depending on
 # the Tor version

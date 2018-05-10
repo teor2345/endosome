@@ -7,13 +7,13 @@
 
 import binascii
 
+import stem.client.cell
+
 from endosome import *
 
 # The default IP and Port
 RELAYIP = '127.0.0.1'
 ORPORT = 12345
-
-MAX_RESPONSE_LEN = 10*1024*1024
 
 # Request:
 # VERSIONS, PADDING
@@ -21,24 +21,24 @@ MAX_RESPONSE_LEN = 10*1024*1024
 # VERSIONS, CERTS, AUTH_CHALLENGE
 
 version_list = [3]
-REQUEST  = pack_versions_cell(version_list)
-REQUEST += pack_padding_cell(version_list[0])
+REQUEST  = stem.client.cell.VersionsCell(version_list).pack()
+REQUEST += stem.client.cell.PaddingCell().pack(version_list[0])
 
 print 'SSL Server: {}:{}'.format(RELAYIP, ORPORT)
 print '\nRequest Cells:\n{}'.format(format_cells(REQUEST, version_list))
-response = ssl_request(RELAYIP, ORPORT, REQUEST, MAX_RESPONSE_LEN)
+response = ssl_request(RELAYIP, ORPORT, REQUEST)
 print 'Response Cells:\n{}'.format(format_cells(response, version_list))
 
 # Even an intervening VPADDING cell doesn't help
 
 version_list = [4]
-REQUEST  = pack_versions_cell(version_list)
-REQUEST += pack_vpadding_cell(100, version_list[0])
-REQUEST += pack_padding_cell(version_list[0])
+REQUEST  = stem.client.cell.VersionsCell(version_list).pack()
+REQUEST += stem.client.cell.VPaddingCell(100).pack(version_list[0])
+REQUEST += stem.client.cell.PaddingCell().pack(version_list[0])
 
 print 'SSL Server: {}:{}'.format(RELAYIP, ORPORT)
 print '\nRequest Cells:\n{}'.format(format_cells(REQUEST, version_list))
-response = ssl_request(RELAYIP, ORPORT, REQUEST, MAX_RESPONSE_LEN)
+response = ssl_request(RELAYIP, ORPORT, REQUEST)
 print 'Response Cells:\n{}'.format(format_cells(response, version_list))
 
 # The relay fails to respond, and logs:
@@ -60,11 +60,11 @@ print 'Response Cells:\n{}'.format(format_cells(response, version_list))
 # But it works if you send a lot of them
 
 version_list = [4]
-REQUEST  = pack_versions_cell(version_list)
-REQUEST += pack_vpadding_cell(100, version_list[0]) * 1000
-REQUEST += pack_padding_cell(version_list[0])
+REQUEST  = stem.client.cell.VersionsCell(version_list).pack()
+REQUEST += stem.client.cell.VPaddingCell(100).pack(version_list[0]) * 1000
+REQUEST += stem.client.cell.PaddingCell().pack(version_list[0])
 
 print 'SSL Server: {}:{}'.format(RELAYIP, ORPORT)
 print '\nRequest Cells:\n{}'.format(format_cells(REQUEST, version_list))
-response = ssl_request(RELAYIP, ORPORT, REQUEST, MAX_RESPONSE_LEN)
+response = ssl_request(RELAYIP, ORPORT, REQUEST)
 print 'Response Cells:\n{}'.format(format_cells(response, version_list))

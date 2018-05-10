@@ -14,10 +14,11 @@ ORPORT = 12345
 # Expected Response:
 # VERSIONS, CERTS, AUTH_CHALLENGE, NETINFO, CREATED_FAST
 
-# Create the cell
-drop_cell = circuit_make_relay_cell('RELAY',
-                                    'RELAY_DROP',
-                                    relay_payload_bytes=pack_relay_drop_data())
+drop_cell = {
+  'cell_command_string': 'RELAY',
+  'relay_command_string': 'RELAY_DROP',
+  'relay_payload_bytes': pack_relay_drop_data(),
+}
 
 # Try the default set of link versions: we will get 4 or 5, depending on
 # the Tor version
